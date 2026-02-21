@@ -279,6 +279,19 @@ def shutdown_session(exception=None):
     db.session.remove()
 
 
+# Attach models to app for access via current_app in routes
+app.Attendance = Attendance
+app.Employee = Employee
+app.LeaveRequest = LeaveRequest
+app.LeaveBalance = LeaveBalance
+app.Holiday = Holiday
+app.Notification = Notification
+app.FiscalYear = FiscalYear
+app.db = db
+app.get_fiscal_year_python = get_fiscal_year_python
+app.calculate_leave_days_python = calculate_leave_days_python
+
+
 # =====================================================
 # ENVIRONMENT-BASED ROUTE REGISTRATION
 # =====================================================

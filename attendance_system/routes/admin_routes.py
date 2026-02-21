@@ -23,7 +23,7 @@ def retry_on_db_error(max_retries=3, delay=0.1):
                     last_exception = e
                     if 'database is locked' in str(e).lower() or 'locked' in str(e).lower():
                         time.sleep(delay * (attempt + 1))
-                        from app import db
+                        from main import db
                         db.session.rollback()
                     else:
                         raise
@@ -44,7 +44,7 @@ admin_bp = Blueprint('admin', __name__)
 @admin_bp.route('/admin-login', methods=['GET', 'POST'])
 def admin_login():
     """Admin login page"""
-    from app import db, Employee, LeaveBalance, FiscalYear
+    from main import db, Employee, LeaveBalance, FiscalYear
     
     if request.method == 'POST':
         password = request.form.get('password', '')
@@ -77,7 +77,7 @@ def admin_input():
 @retry_on_db_error(max_retries=3)
 def create_employee():
     """Create new employee"""
-    from app import db, Employee, LeaveBalance, FiscalYear, get_fiscal_year_python
+    from main import db, Employee, LeaveBalance, FiscalYear, get_fiscal_year_python
     
     data = request.get_json()
     
@@ -143,7 +143,7 @@ def create_employee():
 @admin_bp.route('/api/employees/reset-annual-leave', methods=['POST'])
 def reset_annual_leave():
     """Reset all employees' annual leave balance to 21 days"""
-    from app import db, Employee
+    from main import db, Employee
     
     try:
         employees = Employee.query.filter_by(IsActive=True).all()
@@ -175,7 +175,7 @@ def reset_annual_leave():
 @retry_on_db_error(max_retries=3)
 def create_attendance():
     """Create new attendance record with Saturday check"""
-    from app import db, Attendance
+    from main import db, Attendance
     
     data = request.get_json()
     
@@ -215,7 +215,7 @@ def create_attendance():
 @retry_on_db_error(max_retries=3)
 def update_attendance(attendance_id):
     """Update attendance (clock out)"""
-    from app import db, Attendance
+    from main import db, Attendance
     
     attendance = Attendance.query.get_or_404(attendance_id)
     data = request.get_json()
@@ -243,7 +243,7 @@ def update_attendance(attendance_id):
 @retry_on_db_error(max_retries=3)
 def create_leave_request():
     """Create leave request (admin version with auto-approve)"""
-    from app import db, LeaveRequest, LeaveBalance, get_fiscal_year_python
+    from main import db, LeaveRequest, LeaveBalance, get_fiscal_year_python
     
     data = request.get_json()
 
@@ -283,7 +283,7 @@ def create_leave_request():
         return jsonify({'success': False, 'error': f'Invalid date format. Use YYYY-MM-DD. Error: {str(e)}'}), 400
 
     try:
-        from app import calculate_leave_days_python
+        from main import calculate_leave_days_python
         total_days = calculate_leave_days_python(start_date, end_date)
 
         if leave_type in ['Annual', 'Sick']:
@@ -346,7 +346,7 @@ def create_leave_request():
 @admin_bp.route('/api/leave-requests/<int:request_id>/approve', methods=['POST'])
 def approve_leave_request(request_id):
     """Approve a leave request and deduct from balance"""
-    from app import db, LeaveRequest, Employee, LeaveBalance, Notification, get_fiscal_year_python
+    from main import db, LeaveRequest, Employee, LeaveBalance, Notification, get_fiscal_year_python
     
     try:
         leave_request = LeaveRequest.query.get(request_id)
@@ -397,7 +397,7 @@ def approve_leave_request(request_id):
 @admin_bp.route('/api/leave-requests/<int:request_id>/reject', methods=['POST'])
 def reject_leave_request(request_id):
     """Reject a leave request"""
-    from app import db, LeaveRequest
+    from main import db, LeaveRequest
     
     try:
         leave_request = LeaveRequest.query.get(request_id)
@@ -424,7 +424,7 @@ def reject_leave_request(request_id):
 @admin_bp.route('/api/leave-requests/<int:request_id>', methods=['DELETE'])
 def delete_leave_request(request_id):
     """Delete a leave request"""
-    from app import db, LeaveRequest
+    from main import db, LeaveRequest
     
     try:
         leave_request = LeaveRequest.query.get(request_id)
@@ -443,7 +443,7 @@ def delete_leave_request(request_id):
 @admin_bp.route('/delete_leave/<int:id>', methods=['POST'])
 def delete_leave(id):
     """Delete a rejected leave request"""
-    from app import db, LeaveRequest
+    from main import db, LeaveRequest
     
     try:
         leave_request = LeaveRequest.query.get(id)
@@ -474,7 +474,7 @@ def delete_leave(id):
 @admin_bp.route('/api/holidays', methods=['GET'])
 def get_holidays():
     """Get all holidays"""
-    from app import Holiday
+    from main import Holiday
     
     try:
         holidays = Holiday.query.order_by(Holiday.holiday_date).all()
@@ -488,7 +488,7 @@ def get_holidays():
 @admin_bp.route('/api/holidays', methods=['POST'])
 def add_holiday():
     """Add a new holiday"""
-    from app import db, Holiday
+    from main import db, Holiday
     
     try:
         data = request.get_json()
@@ -508,7 +508,7 @@ def add_holiday():
 @admin_bp.route('/api/holidays/<int:holiday_id>', methods=['DELETE'])
 def delete_holiday(holiday_id):
     """Delete a holiday"""
-    from app import db, Holiday
+    from main import db, Holiday
     
     try:
         holiday = Holiday.query.get(holiday_id)
@@ -529,7 +529,7 @@ def delete_holiday(holiday_id):
 @admin_bp.route('/api/reports/attendance-pdf')
 def generate_attendance_pdf():
     """Generate attendance PDF report"""
-    from app import Attendance, Employee
+    from main import Attendance, Employee
     from pdf_report import generate_attendance_pdf as gen_att_pdf
     
     try:
@@ -555,7 +555,7 @@ def generate_attendance_pdf():
 @admin_bp.route('/api/reports/leave-pdf')
 def generate_leave_pdf():
     """Generate leave PDF report"""
-    from app import LeaveRequest, Employee
+    from main import LeaveRequest, Employee
     from pdf_report import generate_leave_pdf as gen_leave_pdf
     
     try:
@@ -596,7 +596,7 @@ def generate_leave_pdf():
 @admin_bp.route('/api/reports/monthly-attendance-summary')
 def get_monthly_attendance_summary():
     """Get monthly attendance summary for all employees"""
-    from app import Attendance, Employee, Holiday
+    from main import Attendance, Employee, Holiday
     
     try:
         year = request.args.get('year', type=int, default=datetime.now().year)
@@ -673,7 +673,7 @@ def get_monthly_attendance_summary():
 @admin_bp.route('/api/reports/fiscal-year-summary')
 def get_fiscal_year_summary():
     """Get Fiscal Year Summary for all employees"""
-    from app import Attendance, Employee, LeaveRequest
+    from main import Attendance, Employee, LeaveRequest
     
     try:
         fy_start_date = date(2025, 10, 1)

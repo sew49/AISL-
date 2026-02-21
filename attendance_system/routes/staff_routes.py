@@ -29,8 +29,6 @@ def retry_on_db_error(max_retries=3, delay=0.1):
                     if 'database is locked' in str(e).lower() or 'locked' in str(e).lower():
                         import time
                         time.sleep(delay * (attempt + 1))
-                        from app import db
-                        db.session.rollback()
                     else:
                         raise
             raise last_exception
@@ -55,7 +53,8 @@ def index():
 @retry_on_db_error(max_retries=3)
 def create_attendance():
     """Staff clock in"""
-    from app import db, Attendance
+    from flask import current_app
+    db = current_app.db
     
     data = request.get_json()
     
@@ -70,6 +69,9 @@ def create_attendance():
     is_saturday = work_date.weekday() == 5
     expected_hours = 5 if is_saturday else 8
     day_type = 'Saturday (5hrs)' if is_saturday else 'Full Day (8hrs)'
+    
+    # Get model class from current app
+    Attendance = current_app.Attendance
     
     new_attendance = Attendance(
         EmpID=data.get('emp_id'),
@@ -94,7 +96,8 @@ def create_attendance():
 @staff_bp.route('/api/attendance', methods=['GET'])
 def get_attendance():
     """Get attendance records"""
-    from app import Attendance
+    from flask import current_app
+    Attendance = current_app.Attendance
     
     emp_id = request.args.get('emp_id', type=int)
     start_date = request.args.get('start_date')
@@ -122,7 +125,9 @@ def get_attendance():
 @retry_on_db_error(max_retries=3)
 def update_attendance(attendance_id):
     """Update attendance (clock out)"""
-    from app import db, Attendance
+    from flask import current_app
+    db = current_app.db
+    Attendance = current_app.Attendance
     
     attendance = Attendance.query.get_or_404(attendance_id)
     data = request.get_json()
@@ -145,7 +150,11 @@ def update_attendance(attendance_id):
 @staff_bp.route('/api/attendance/today', methods=['GET'])
 def get_today_attendance():
     """Get today's attendance for all employees"""
-    from app import Attendance, Employee, LeaveRequest
+    from flask import current_app
+    db = current_app.db
+    Attendance = current_app.Attendance
+    Employee = current_app.Employee
+    LeaveRequest = current_app.LeaveRequest
     
     try:
         today = date.today()
@@ -212,7 +221,8 @@ def get_today_attendance():
 @staff_bp.route('/api/employees', methods=['GET'])
 def get_employees():
     """Get all employees"""
-    from app import Employee
+    from flask import current_app
+    Employee = current_app.Employee
     
     employees = Employee.query.filter_by(IsActive=True).all()
     return jsonify({
@@ -230,7 +240,12 @@ def get_employees():
 @retry_on_db_error(max_retries=3)
 def create_leave_request():
     """Create leave request (staff version - always pending)"""
-    from app import db, LeaveRequest, LeaveBalance, get_fiscal_year_python
+    from flask import current_app
+    db = current_app.db
+    LeaveRequest = current_app.LeaveRequest
+    LeaveBalance = current_app.LeaveBalance
+    get_fiscal_year_python = current_app.get_fiscal_year_python
+    calculate_leave_days_python = current_app.calculate_leave_days_python
     
     data = request.get_json()
 
@@ -263,7 +278,6 @@ def create_leave_request():
         return jsonify({'success': False, 'error': f'Invalid date format. Use YYYY-MM-DD. Error: {str(e)}'}), 400
 
     try:
-        from app import calculate_leave_days_python
         total_days = calculate_leave_days_python(start_date, end_date)
 
         if leave_type in ['Annual', 'Sick']:
@@ -314,7 +328,8 @@ def create_leave_request():
 @staff_bp.route('/api/leave-requests', methods=['GET'])
 def get_leave_requests():
     """Get all leave requests"""
-    from app import LeaveRequest
+    from flask import current_app
+    LeaveRequest = current_app.LeaveRequest
     
     try:
         leave_requests = LeaveRequest.query.order_by(LeaveRequest.StartDate.desc()).all()
@@ -333,7 +348,8 @@ def get_leave_requests():
 @staff_bp.route('/api/leave-balances', methods=['GET'])
 def get_leave_balances():
     """Get leave balances"""
-    from app import LeaveBalance
+    from flask import current_app
+    LeaveBalance = current_app.LeaveBalance
     
     emp_id = request.args.get('emp_id', type=int)
     fiscal_year = request.args.get('fiscal_year', type=int)
@@ -361,7 +377,8 @@ def get_leave_balances():
 @staff_bp.route('/api/notifications', methods=['GET'])
 def get_notifications():
     """Get notifications for an employee"""
-    from app import Notification
+    from flask import current_app
+    Notification = current_app.Notification
     
     emp_id = request.args.get('emp_id', type=int)
     
@@ -381,7 +398,9 @@ def get_notifications():
 @staff_bp.route('/api/notifications/<int:notification_id>/read', methods=['POST'])
 def mark_notification_read(notification_id):
     """Mark notification as read"""
-    from app import db, Notification
+    from flask import current_app
+    db = current_app.db
+    Notification = current_app.Notification
     
     try:
         notification = Notification.query.get(notification_id)
@@ -399,7 +418,8 @@ def mark_notification_read(notification_id):
 @staff_bp.route('/api/notifications/unread-count', methods=['GET'])
 def get_unread_count():
     """Get count of unread notifications for an employee"""
-    from app import Notification
+    from flask import current_app
+    Notification = current_app.Notification
     
     emp_id = request.args.get('emp_id', type=int)
     
