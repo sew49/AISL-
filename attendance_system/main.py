@@ -4,11 +4,7 @@
 """
 This file serves as the main entry point for the Attendance System.
 
-Environment-based routing:
-- When RENDER env var is set (Production on Render): Only Admin routes are enabled
-- When running locally (no RENDER env var): Only Staff routes are enabled
-
-Both connect to the same Supabase URL and Key defined in config.py
+All routes (Admin and Staff) are enabled regardless of environment.
 """
 
 import os
@@ -293,63 +289,41 @@ app.calculate_leave_days_python = calculate_leave_days_python
 
 
 # =====================================================
-# ENVIRONMENT-BASED ROUTE REGISTRATION
+# ALWAYS-ENABLED ROUTES
 # =====================================================
 
-# Check for RENDER environment variable explicitly
-IS_RENDER = os.environ.get('RENDER') is not None
+print(f"\n{'='*60}")
+print(f"ATTENDANCE SYSTEM STARTUP")
+print(f"{'='*60}")
+print(f"Supabase URL: {SUPABASE_URL}")
+print(f"Database: {'PostgreSQL' if 'postgresql' in SQLALCHEMY_DATABASE_URI else 'SQLite'}")
+print(f"{'='*60}\n")
 
-# Determine template folder based on environment
-if IS_RENDER:
-    TEMPLATE_FOLDER = 'admin'
-    APP_MODE = 'admin'
-    print(f"\n{'='*60}")
-    print(f"ATTENDANCE SYSTEM STARTUP")
-    print(f"{'='*60}")
-    print(f"Running on: Render (Production)")
-    print(f"App Mode: {APP_MODE.upper()}")
-    print(f"Template Folder: templates/{TEMPLATE_FOLDER}/")
-    print(f"Supabase URL: {SUPABASE_URL}")
-    print(f"Database: {'PostgreSQL' if 'postgresql' in SQLALCHEMY_DATABASE_URI else 'SQLite'}")
-    print(f"{'='*60}\n")
-    
-    # RENDER (Production) - Admin routes only
-    print(">>> Loading Admin Routes (Production Mode) <<<")
-    from routes.admin_routes import admin_bp
-    app.register_blueprint(admin_bp)
-    print(">>> Admin Routes Registered Successfully <<<\n")
-    
-    @app.route('/')
-    def index():
-        """Redirect to admin login on production"""
-        return redirect(url_for('admin.admin_login'))
-    
-else:
-    TEMPLATE_FOLDER = 'staff'
-    APP_MODE = 'staff'
-    print(f"\n{'='*60}")
-    print(f"ATTENDANCE SYSTEM STARTUP")
-    print(f"{'='*60}")
-    print(f"Running on: Local (Development)")
-    print(f"App Mode: {APP_MODE.upper()}")
-    print(f"Template Folder: templates/{TEMPLATE_FOLDER}/")
-    print(f"Supabase URL: {SUPABASE_URL}")
-    print(f"Database: {'PostgreSQL' if 'postgresql' in SQLALCHEMY_DATABASE_URI else 'SQLite'}")
-    print(f"{'='*60}\n")
-    
-    # LOCAL (Development) - Staff routes only
-    print(">>> Loading Staff Routes (Development Mode) <<<")
-    from routes.staff_routes import staff_bp
-    app.register_blueprint(staff_bp)
-    print(">>> Staff Routes Registered Successfully <<<\n")
-    
-    @app.route('/admin-login')
-    def admin_login_disabled():
-        """Admin login disabled in local mode"""
-        return jsonify({
-            'success': False,
-            'error': 'Admin access is disabled in local (staff) mode'
-        }), 403
+# Home route - serves staff portal
+@app.route('/')
+def index():
+    """Home page - staff portal"""
+    return render_template('staff/index.html')
+
+# Admin Login route
+@app.route('/admin-login')
+def admin_login():
+    """Admin login page"""
+    from flask import current_app
+    template_folder = 'admin'
+    return render_template('admin/admin_login.html')
+
+# Load Admin routes
+print(">>> Loading Admin Routes <<<")
+from routes.admin_routes import admin_bp
+app.register_blueprint(admin_bp)
+print(">>> Admin Routes Registered Successfully <<<\n")
+
+# Load Staff routes (no prefix - at root)
+print(">>> Loading Staff Routes <<<")
+from routes.staff_routes import staff_bp
+app.register_blueprint(staff_bp)
+print(">>> Staff Routes Registered Successfully <<<\n")
 
 
 # =====================================================
@@ -432,5 +406,5 @@ if __name__ == '__main__':
             else:
                 print("All employees already have leave balance set.")
     
-    print(f"\n🚀 Starting server in {APP_MODE.upper()} mode...")
+    print(f"\n🚀 Starting server...")
     app.run(debug=True, host='0.0.0.0', port=5000)
