@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Admin Login - Aero Instrument</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+        }
+        @media (max-width: 640px) {
+            .mobile-padding { padding: 1rem; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+    <div class="max-w-md w-full mx-4">
+        <div class="bg-white rounded-xl shadow-lg p-6 md:p-8">
+            <div class="text-center mb-6 md:mb-8">
+                <h1 id="greeting" class="text-xl md:text-2xl font-bold text-gray-800">Loading...</h1>
+                <p class="text-gray-600 mt-2 text-sm md:text-base">Admin Login</p>
+            </div>
+            
+            {% if error %}
+            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                {{ error }}
+            </div>
+            {% endif %}
+            
+            <form method="POST" action="{{ url_for('admin_login') }}">
+                <div class="mb-6">
+                    <label class="block text-gray-700 text-sm font-bold mb-2" for="password">
+                        Password
+                    </label>
+                    <input 
+                        type="password" 
+                        name="password" 
+                        id="password"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
+                        placeholder="Enter admin password"
+                        required
+                        autocomplete="current-password"
+                    >
+                </div>
+                
+                <button 
+                    type="submit"
+                    class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg transition-colors text-base md:text-lg"
+                >
+                    Login
+                </button>
+            </form>
+            
+            <div class="mt-6 text-center">
+                <a href="{{ url_for('index') }}" class="text-blue-500 hover:text-blue-700 text-sm md:text-base">
+                    ← Back to Attendance System
+                </a>
+            </div>
+        </div>
+        
+        <p class="text-center text-gray-500 text-xs mt-4">
+            Session lasts 8 hours
+        </p>
+    </div>
+
+    <script>
+        function setGreeting() {
+            const now = new Date();
+            const hour = now.getHours();
+            let greeting = '';
+            
+            if (hour >= 5 && hour < 12) {
+                greeting = 'Good morning! Welcome to AISL attendance web. Please login to continue.';
+            } else if (hour >= 12 && hour < 18) {
+                greeting = 'Good afternoon! Welcome to AISL attendance web. Please login to continue.';
+            } else {
+                greeting = 'Good evening! Welcome to AISL attendance web. Please login to continue.';
+            }
+            
+            document.getElementById('greeting').textContent = greeting;
+        }
+        
+        // Set greeting on page load
+        setGreeting();
+    </script>
+</body>
+</html>

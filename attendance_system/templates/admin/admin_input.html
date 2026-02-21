@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Input - Attendance System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+        }
+        .card-shadow {
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- Header -->
+    <header class="gradient-bg text-white py-4 px-4 shadow-lg sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                <div>
+                    <h1 id="liveHeading" class="text-xl md:text-3xl font-bold">Live Attendance for Today: </h1>
+                    <p class="text-blue-200 text-sm">Manage attendance and leave records</p>
+                </div>
+                <div class="flex gap-2">
+                    <a href="/" class="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-sm transition-colors">
+                        ← Back to Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto p-4">
+        <!-- Alert Messages -->
+        <div id="alertMessage" class="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 hidden">
+            <div class="bg-white rounded-lg shadow-xl p-4 max-w-md border-l-4" id="alertContent"></div>
+        </div>
+
+        <!-- Admin Input Form -->
+        <section class="bg-white rounded-xl card-shadow p-4 md:p-6">
+            <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                </svg>
+                Manual Entry Form
+            </h2>
+            
+            <form id="adminForm" class="space-y-4">
+                <!-- Employee Selection -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Select Employee</label>
+                    <select id="employeeSelect" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
+                        <option value="">-- Select Employee --</option>
+                    </select>
+                </div>
+                
+                <!-- Entry Type -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Entry Type</label>
+                    <select id="entryType" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
+                        <option value="attendance">Regular Attendance (Clock In/Out)</option>
+                        <option value="sick">Sick Leave</option>
+                        <option value="annual">Annual Leave</option>
+                    </select>
+                </div>
+                
+                <!-- Date Selection -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                    <input type="date" id="workDate" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required min="2025-01-01">
+                </div>
+                
+                <!-- Time Inputs (for regular attendance) -->
+                <div id="timeInputs" class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Clock In Time</label>
+                        <input type="time" id="clockIn" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="08:00">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Clock Out Time</label>
+                        <input type="time" id="clockOut" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" value="17:00">
+                    </div>
+                </div>
+                
+                <!-- Notes -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Notes (Optional)</label>
+                    <input type="text" id="notes" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Additional notes...">
+                </div>
+                
+                <!-- Submit Button -->
+                <button type="submit" class="w-full px-4 py-3 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg transition-colors">
+                    Record Entry
+                </button>
+            </form>
+        </section>
+
+        <!-- Leave Records Table -->
+        <section class="bg-white rounded-xl card-shadow p-4 md:p-6 mt-4">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-4 gap-2">
+                <h2 class="text-lg font-semibold text-gray-800 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                    </svg>
+                    Leave Records
+                    <button id="refreshLeaveBtn" class="ml-2 p-1 text-blue-600 hover:text-blue-800" title="Refresh">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                    </button>
+                </h2>
+                <div class="flex gap-2 items-center">
+                    <button onclick="resetAllAnnualLeave()" class="px-3 py-1 bg-green-500 hover:bg-green-600 text-white text-sm rounded flex items-center">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        Reset All Annual Leave (21 Days)
+                    </button>
+                    <input type="date" id="leaveStartDate" class="px-2 py-1 text-sm border rounded w-32">
+                    <input type="date" id="leaveEndDate" class="px-2 py-1 text-sm border rounded w-32">
+                    <button onclick="exportLeavePDF()" class="px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-sm rounded flex items-center">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        Export PDF
+                    </button>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="bg-gray-50">
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Leave Type</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Reason</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaveRecordsTable" class="divide-y divide-gray-200">
+                        <tr>
+                            <td colspan="6" class="px-3 py-4 text-center text-gray-500">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Recent Attendance Entries -->
+        <section class="bg-white rounded-xl card-shadow p-4 md:p-6 mt-4">
+            <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                Recent Attendance Entries
+            </h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="bg-gray-50">
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recentEntries" class="divide-y divide-gray-200">
+                        <tr>
+                            <td colspan="4" class="px-3 py-4 text-center text-gray-500">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Fiscal Year Summary Table -->
+        <section class="bg-white rounded-xl card-shadow p-4 md:p-6 mt-4">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-4 gap-2">
+                <h2 class="text-lg font-semibold text-gray-800 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    Fiscal Year Summary (Oct 2025 - Present)
+                </h2>
+                <button onclick="fetchFiscalYearSummary()" class="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded">
+                    Refresh
+                </button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="bg-gray-50">
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Days Present</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Annual Leave (of 21)</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Remaining Leave</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Sick Days</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Unpaid Absences</th>
+                        </tr>
+                    </thead>
+                    <tbody id="fiscalYearSummaryTable" class="divide-y divide-gray-200">
+                        <tr>
+                            <td colspan="6" class="px-3 py-4 text-center text-gray-500">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Monthly Attendance Summary Table -->
+        <section class="bg-white rounded-xl card-shadow p-4 md:p-6 mt-4">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-4 gap-2">
+                <h2 class="text-lg font-semibold text-gray-800 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                    </svg>
+                    Monthly Attendance Summary
+                </h2>
+                <div class="flex gap-2 items-center">
+                    <select id="summaryMonth" class="px-2 py-1 text-sm border rounded">
+                        <option value="1">January</option>
+                        <option value="2">February</option>
+                        <option value="3">March</option>
+                        <option value="4">April</option>
+                        <option value="5">May</option>
+                        <option value="6">June</option>
+                        <option value="7">July</option>
+                        <option value="8">August</option>
+                        <option value="9">September</option>
+                        <option value="10">October</option>
+                        <option value="11">November</option>
+                        <option value="12">December</option>
+                    </select>
+                    <select id="summaryYear" class="px-2 py-1 text-sm border rounded">
+                        <option value="2025">2025</option>
+                        <option value="2026">2026</option>
+                    </select>
+                    <button onclick="fetchMonthlyAttendanceSummary()" class="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded">
+                        Load
+                    </button>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="bg-gray-50">
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Month</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Days Present</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Target Days</th>
+                        </tr>
+                    </thead>
+                    <tbody id="monthlyAttendanceTable" class="divide-y divide-gray-200">
+                        <tr>
+                            <td colspan="4" class="px-3 py-4 text-center text-gray-500">Select month and click Load</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+<script>
+        // Use relative URL for API calls (works in both local and production)
+        const API_BASE = '';
+        
+        const employeeSelect = document.getElementById('employeeSelect');
+        const entryType = document.getElementById('entryType');
+        const timeInputs = document.getElementById('timeInputs');
+        const adminForm = document.getElementById('adminForm');
+        
+        // Set default date to today
+        document.getElementById('workDate').valueAsDate = new Date();
+        
+        // Set live heading with today's date
+        const today = new Date();
+        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        const todayStr = today.toLocaleDateString('en-US', options);
+        document.getElementById('liveHeading').textContent = 'Live Attendance for Today: ' + todayStr;
+        
+        // Show/hide time inputs based on entry type
+        entryType.addEventListener('change', (e) => {
+            if (e.target.value === 'attendance') {
+                timeInputs.classList.remove('hidden');
+            } else {
+                timeInputs.classList.add('hidden');
+            }
+        });
+        
+        // Fetch employees
+        async function fetchEmployees() {
+            try {
+                const response = await fetch(`${API_BASE}/api/employees`);
+                const data = await response.json();
+                
+                if (data.success && data.employees) {
+                    let optionsHTML = '<option value="">-- Select Employee --</option>';
+                    data.employees.forEach(emp => {
+                        optionsHTML += `<option value="${emp.emp_id}">${emp.first_name} ${emp.last_name} (${emp.employee_code})</option>`;
+                    });
+                    employeeSelect.innerHTML = optionsHTML;
+                }
+            } catch (error) {
+                console.error('Error fetching employees:', error);
+                showAlert('Failed to connect to server', 'error');
+            }
+        }
+        
+        // Show alert message
+        function showAlert(message, type = 'success') {
+            const alertEl = document.getElementById('alertMessage');
+            const alertContent = document.getElementById('alertContent');
+            
+            if (type === 'success') {
+                alertContent.className = 'bg-green-100 border-green-500 text-green-800';
+            } else {
+                alertContent.className = 'bg-red-100 border-red-500 text-red-800';
+            }
+            
+            alertContent.innerHTML = message;
+            alertEl.classList.remove('hidden');
+            
+            setTimeout(() => {
+                alertEl.classList.add('hidden');
+            }, 5000);
+        }
+        
+        // Submit form
+        adminForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const empId = employeeSelect.value;
+            const type = entryType.value;
+            const workDate = document.getElementById('workDate').value;
+            const clockIn = document.getElementById('clockIn').value;
+            const clockOut = document.getElementById('clockOut').value;
+            const notes = document.getElementById('notes').value;
+            
+            if (!empId) {
+                showAlert('Please select an employee', 'error');
+                return;
+            }
+            
+            if (!workDate) {
+                showAlert('Please select a date', 'error');
+                return;
+            }
+            
+            try {
+                if (type === 'attendance') {
+                    // Create regular attendance
+                    const response = await fetch(`${API_BASE}/api/attendance`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            emp_id: parseInt(empId),
+                            work_date: workDate,
+                            clock_in: clockIn,
+                            clock_out: clockOut,
+                            notes: notes
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        showAlert(`✅ Attendance recorded for ${workDate}`, 'success');
+                        fetchRecentEntries();
+                        adminForm.reset();
+                        document.getElementById('workDate').valueAsDate = new Date();
+                    } else {
+                        showAlert(`❌ ${data.error || 'Failed to record attendance'}`, 'error');
+                    }
+                } else if (type === 'sick') {
+                    // Create sick leave request
+                    const response = await fetch(`${API_BASE}/api/leave-requests`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            emp_id: parseInt(empId),
+                            leave_type: 'Sick Leave',
+                            start_date: workDate,
+                            end_date: workDate,
+                            reason: notes || 'Sick leave'
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        showAlert(`✅ Sick leave recorded for ${workDate}`, 'success');
+                        fetchLeaveRecords();
+                        adminForm.reset();
+                        document.getElementById('workDate').valueAsDate = new Date();
+                    } else {
+                        showAlert(`❌ ${data.error || 'Failed to record sick leave'}`, 'error');
+                    }
+                } else if (type === 'annual') {
+                    // Create annual leave request
+                    const response = await fetch(`${API_BASE}/api/leave-requests`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            emp_id: parseInt(empId),
+                            leave_type: 'Annual Leave',
+                            start_date: workDate,
+                            end_date: workDate,
+                            reason: notes || 'Annual leave'
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        showAlert(`✅ Annual leave recorded for ${workDate}`, 'success');
+                        fetchLeaveRecords();
+                        adminForm.reset();
+                        document.getElementById('workDate').valueAsDate = new Date();
+                    } else {
+                        showAlert(`❌ ${data.error || 'Failed to record annual leave'}`, 'error');
+                    }
+                }
+            } catch (error) {
+                console.error('Error submitting:', error);
+                showAlert('❌ Failed to connect to server', 'error');
+            }
+        });
+        
+        // Fetch leave records
+        async function fetchLeaveRecords() {
+            try {
+                const response = await fetch(`${API_BASE}/api/leave-requests`);
+                const data = await response.json();
+                
+                const empResponse = await fetch(`${API_BASE}/api/employees`);
+                const empData = await empResponse.json();
+                
+                const empMap = {};
+                if (empData.employees) {
+                    empData.employees.forEach(emp => {
+                        empMap[emp.emp_id] = `${emp.first_name} ${emp.last_name}`;
+                    });
+                }
+                
+                if (data.success && data.leave_requests && data.leave_requests.length > 0) {
+                    // Sort by date descending
+                    const sorted = data.leave_requests.sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
+                    
+                    const rows = sorted.map(leave => {
+                        const empName = empMap[leave.emp_id] || 'Unknown';
+                        const typeClass = leave.leave_type === 'Annual' ? 'bg-green-100 text-green-800' : 
+                                         leave.leave_type === 'Sick' ? 'bg-red-100 text-red-800' : 
+                                         'bg-gray-100 text-gray-800';
+                        const statusClass = leave.status === 'Approved' ? 'bg-green-100 text-green-800' :
+                                          leave.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
+                                          'bg-red-100 text-red-800';
+                        
+                        return `
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-3 py-2 font-medium text-gray-900 text-sm">${empName}</td>
+                                <td class="px-3 py-2 text-sm">
+                                    <span class="px-2 py-1 text-xs font-semibold rounded-full ${typeClass}">
+                                        ${leave.leave_type}
+                                    </span>
+                                </td>
+                                <td class="px-3 py-2 text-gray-600 text-sm">${leave.start_date}</td>
+                                <td class="px-3 py-2 text-gray-600 text-sm">${leave.reason || '-'}</td>
+                                <td class="px-3 py-2 text-sm">
+                                    <span class="px-2 py-1 text-xs font-semibold rounded-full ${statusClass}">
+                                        ${leave.status}
+                                    </span>
+                                </td>
+                                <td class="px-3 py-2">
+                                    ${leave.status === 'Pending' ? `
+                                        <button onclick="approveLeaveRequest(${leave.request_id})" class="text-green-600 hover:text-green-800 text-sm font-medium mr-2" title="Approve">
+                                            <svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                            </svg>
+                                        </button>
+                                        <button onclick="rejectLeaveRequest(${leave.request_id})" class="text-red-600 hover:text-red-800 text-sm font-medium" title="Reject">
+                                            <svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                            </svg>
+                                        </button>
+                                    ` : leave.status === 'Approved' ? `
+                                        <span class="text-green-600 text-sm font-medium">✓ Approved</span>
+                                    ` : `
+                                        <span class="text-red-600 text-sm font-medium mr-2">✗ Rejected</span>
+                                        <button onclick="deleteRejectedLeave(${leave.request_id})" class="text-red-600 hover:text-red-800 text-sm font-medium" title="Delete">
+                                            <svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                            </svg>
+                                        </button>
+                                    `}
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                    
+                    document.getElementById('leaveRecordsTable').innerHTML = rows;
+                } else {
+                    document.getElementById('leaveRecordsTable').innerHTML = '<tr><td colspan="6" class="px-3 py-4 text-center text-gray-500">No leave records found</td></tr>';
+                }
+            } catch (error) {
+                console.error('Error fetching leave records:', error);
+                document.getElementById('leaveRecordsTable').innerHTML = '<tr><td colspan="6" class="px-3 py-4 text-center text-red-500">Failed to load leave records</td></tr>';
+            }
+        }
+        
+        // Approve leave request
+        async function approveLeaveRequest(id) {
+            if (!confirm('Are you sure you want to approve this leave request?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/leave-requests/${id}/approve`, {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showAlert('✅ Leave request approved successfully', 'success');
+                    fetchLeaveRecords();
+                } else {
+                    showAlert(`❌ ${data.error || 'Failed to approve leave request'}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error approving leave request:', error);
+                showAlert('❌ Failed to connect to server', 'error');
+            }
+        }
+
+        // Reject leave request
+        async function rejectLeaveRequest(id) {
+            if (!confirm('Are you sure you want to reject this leave request?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/leave-requests/${id}/reject`, {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showAlert('❌ Leave request rejected', 'success');
+                    fetchLeaveRecords();
+                } else {
+                    showAlert(`❌ ${data.error || 'Failed to reject leave request'}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error rejecting leave request:', error);
+                showAlert('❌ Failed to connect to server', 'error');
+            }
+        }
+
+        // Delete leave request (general)
+        async function deleteLeaveRequest(id) {
+            if (!confirm('Are you sure you want to delete this leave request?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/leave-requests/${id}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showAlert('✅ Leave request deleted successfully', 'success');
+                    fetchLeaveRecords();
+                } else {
+                    showAlert(`❌ ${data.error || 'Failed to delete leave request'}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error deleting leave request:', error);
+                showAlert('❌ Failed to connect to server', 'error');
+            }
+        }
+
+        // Delete rejected leave request
+        async function deleteRejectedLeave(id) {
+            if (!confirm('Are you sure you want to delete this rejected record?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/delete_leave/${id}`, {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showAlert('✅ Rejected leave request deleted successfully', 'success');
+                    fetchLeaveRecords();
+                } else {
+                    showAlert(`❌ ${data.error || 'Failed to delete rejected leave request'}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error deleting rejected leave request:', error);
+                showAlert('❌ Failed to connect to server', 'error');
+            }
+        }
+        
+        // Refresh leave button
+        document.getElementById('refreshLeaveBtn').addEventListener('click', fetchLeaveRecords);
+        
+        // Fetch recent entries
+        async function fetchRecentEntries() {
+            try {
+                const attResponse = await fetch(`${API_BASE}/api/attendance?start_date=2025-10-01`);
+                const attData = await attResponse.json();
+                
+                if (attData.success && attData.attendance) {
+                    const empResponse = await fetch(`${API_BASE}/api/employees`);
+                    const empData = await empResponse.json();
+                    
+                    const empMap = {};
+                    if (empData.employees) {
+                        empData.employees.forEach(emp => {
+                            empMap[emp.emp_id] = `${emp.first_name} ${emp.last_name}`;
+                        });
+                    }
+                    
+                    // Sort by date descending and take last 10
+                    const sorted = attData.attendance.slice(0, 10).reverse();
+                    
+                    if (sorted.length > 0) {
+                        const rows = sorted.map(att => {
+                            const empName = empMap[att.emp_id] || 'Unknown';
+                            
+                            // Check if late arrival (clock in >= 08:16)
+                            const isLateArrival = att.clock_in && att.clock_in >= '08:16';
+                            const clockInClass = isLateArrival ? 'text-red-600 font-bold' : 'text-gray-600';
+                            const clockInDisplay = isLateArrival ? `<span class="${clockInClass}">${att.clock_in || '-'}</span>` : (att.clock_in || '-');
+                            
+                            return `
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-3 py-2 text-gray-900 text-sm">${att.work_date}</td>
+                                    <td class="px-3 py-2 text-gray-600 text-sm">${empName}</td>
+                                    <td class="px-3 py-2 text-sm">
+                                        <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                                            Attendance
+                                        </span>
+                                    </td>
+                                    <td class="px-3 py-2 text-gray-600 text-sm">${clockInDisplay} - ${att.clock_out || '-'}</td>
+                                </tr>
+                            `;
+                        }).join('');
+                        
+                        document.getElementById('recentEntries').innerHTML = rows;
+                    } else {
+                        document.getElementById('recentEntries').innerHTML = '<tr><td colspan="4" class="px-3 py-4 text-center text-gray-500">No records found</td></tr>';
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching recent entries:', error);
+            }
+        }
+        
+        // Initialize
+        fetchEmployees();
+        fetchLeaveRecords();
+        fetchRecentEntries();
+        fetchFiscalYearSummary();
+        
+        // Set default month/year and date range for PDF export
+        const now = new Date();
+        document.getElementById('summaryMonth').value = now.getMonth() + 1;
+        document.getElementById('summaryYear').value = now.getFullYear();
+        
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        document.getElementById('leaveStartDate').valueAsDate = startOfMonth;
+        document.getElementById('leaveEndDate').valueAsDate = now;
+        
+        // Fetch Monthly Attendance Summary
+        async function fetchMonthlyAttendanceSummary() {
+            const year = document.getElementById('summaryYear').value;
+            const month = document.getElementById('summaryMonth').value;
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/reports/monthly-attendance-summary?year=${year}&month=${month}`);
+                const data = await response.json();
+                
+                const tableBody = document.getElementById('monthlyAttendanceTable');
+                
+                if (data.success && data.summary) {
+                    const rows = data.summary.map(emp => {
+                        const presentClass = emp.days_present >= emp.target_days ? 'text-green-600 font-semibold' : 
+                                           emp.days_present >= emp.target_days * 0.5 ? 'text-yellow-600' : 'text-red-600';
+                        
+                        return `
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-3 py-2 font-medium text-gray-900 text-sm">${emp.employee_name}</td>
+                                <td class="px-3 py-2 text-gray-600 text-sm">${emp.month}</td>
+                                <td class="px-3 py-2 text-sm ${presentClass}">${emp.days_present}</td>
+                                <td class="px-3 py-2 text-gray-600 text-sm">${emp.target_days}</td>
+                            </tr>
+                        `;
+                    }).join('');
+                    
+                    tableBody.innerHTML = rows;
+                } else {
+                    tableBody.innerHTML = '<tr><td colspan="4" class="px-3 py-4 text-center text-gray-500">No data found</td></tr>';
+                }
+            } catch (error) {
+                console.error('Error fetching monthly attendance:', error);
+                document.getElementById('monthlyAttendanceTable').innerHTML = '<tr><td colspan="4" class="px-3 py-4 text-center text-red-500">Failed to load data</td></tr>';
+            }
+        }
+
+        // Fetch Fiscal Year Summary
+        async function fetchFiscalYearSummary() {
+            try {
+                // Fetch both fiscal year summary and employees data
+                const [summaryResponse, empResponse] = await Promise.all([
+                    fetch(`${API_BASE}/api/reports/fiscal-year-summary`),
+                    fetch(`${API_BASE}/api/employees`)
+                ]);
+                
+                const data = await summaryResponse.json();
+                const empData = await empResponse.json();
+                
+                if (data.success && data.summary) {
+                    const rows = data.summary.map(emp => {
+                        // Find employee by name to get the balance
+                        const empInfo = empData.employees ? empData.employees.find(e => `${e.first_name} ${e.last_name}` === emp.employee_name) : null;
+                        const remainingLeave = empInfo && empInfo.annual_leave_balance !== undefined ? empInfo.annual_leave_balance : (emp.annual_leave_remaining || 21);
+                        
+                        return `
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-3 py-2 font-medium text-gray-900 text-sm">${emp.employee_name}</td>
+                                <td class="px-3 py-2 text-gray-600 text-sm">${emp.days_present}</td>
+                                <td class="px-3 py-2 text-gray-600 text-sm">${emp.annual_leave_taken}</td>
+                                <td class="px-3 py-2 text-gray-600 text-sm font-semibold">${remainingLeave} days</td>
+                                <td class="px-3 py-2 text-gray-600 text-sm">${emp.sick_days_taken}</td>
+                                <td class="px-3 py-2 text-gray-600 text-sm">${emp.unpaid_absences}</td>
+                            </tr>
+                        `;
+                    }).join('');
+                    
+                    document.getElementById('fiscalYearSummaryTable').innerHTML = rows;
+                } else {
+                    document.getElementById('fiscalYearSummaryTable').innerHTML = '<tr><td colspan="6" class="px-3 py-4 text-center text-gray-500">No data found</td></tr>';
+                }
+            } catch (error) {
+                console.error('Error fetching fiscal year summary:', error);
+                document.getElementById('fiscalYearSummaryTable').innerHTML = '<tr><td colspan="6" class="px-3 py-4 text-center text-red-500">Failed to load summary</td></tr>';
+            }
+        }
+
+        // Export Leave PDF
+        function exportLeavePDF() {
+            const startDate = document.getElementById('leaveStartDate').value;
+            const endDate = document.getElementById('leaveEndDate').value;
+            
+            if (!startDate || !endDate) {
+                showAlert('Please select date range', 'error');
+                return;
+            }
+            
+            window.open(`${API_BASE}/api/reports/leave-pdf?start_date=${startDate}&end_date=${endDate}`, '_blank');
+        }
+        
+        // Reset All Annual Leave
+        async function resetAllAnnualLeave() {
+            if (!confirm('Are you sure? This will reset everyone to 21 days for the new year!')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/employees/reset-annual-leave`, {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showAlert('✅ ' + data.message, 'success');
+                    fetchFiscalYearSummary();
+                } else {
+                    showAlert('❌ ' + (data.error || 'Failed to reset annual leave'), 'error');
+                }
+            } catch (error) {
+                console.error('Error resetting annual leave:', error);
+                showAlert('❌ Failed to connect to server', 'error');
+            }
+        }
+    </script>
+</body>
+</html>
