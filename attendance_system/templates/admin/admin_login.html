@@ -28,28 +28,9 @@
             </div>
             {% endif %}
             
-            <form method="POST" action="{{ url_for('admin_login') }}">
-                <div class="mb-6">
-                    <label class="block text-gray-700 text-sm font-bold mb-2" for="password">
-                        Password
-                    </label>
-                    <input 
-                        type="password" 
-                        name="password" 
-                        id="password"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base"
-                        placeholder="Enter admin password"
-                        required
-                        autocomplete="current-password"
-                    >
-                </div>
-                
-                <button 
-                    type="submit"
-                    class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg transition-colors text-base md:text-lg"
-                >
-                    Login
-                </button>
+            <form action="/admin-login" method="POST">
+                <input type="password" name="employee_code" placeholder="Password">
+                <button type="submit">Login</button>
             </form>
             
             <div class="mt-6 text-center">

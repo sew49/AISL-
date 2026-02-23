@@ -277,6 +277,12 @@ def staff_portal():
 @app.route('/admin-login', methods=['GET', 'POST'])
 def admin_login():
     """Admin login page"""
+    if request.method == 'POST':
+        password = request.form.get('employee_code', '')
+        if password == ADMIN_PASSWORD:
+            session['admin_logged_in'] = True
+            return redirect(url_for('admin_dashboard'))
+        return render_template('admin/admin_login.html', error='Invalid password')
     return render_template('admin/admin_login.html')
 
 
