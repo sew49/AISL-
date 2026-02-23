@@ -4,9 +4,21 @@ Attendance System - Complete Single File App
 - 08:15 AM Rule (late arrivals in Bold Red)
 - 21-Day Leave Rule with Orange highlight for ≤3 days
 - Pre-populated 22 staff members
+
+IMPORTANT: Make sure psycopg2-binary is in your requirements.txt!
+    pip install psycopg2-binary
+    # OR add to requirements.txt: psycopg2-binary==2.9.9
+
+This is REQUIRED for Supabase PostgreSQL connection on Render.
 """
 import os
 from datetime import datetime, date, time, timedelta
+
+# Import SQLAlchemy components for direct engine creation
+from sqlalchemy import create_engine
+from sqlalchemy.orm import scoped_session, sessionmaker
+from sqlalchemy.pool import QueuePool
+
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
@@ -28,28 +40,49 @@ DATABASE_URL = os.environ.get('DATABASE_URL', 'sqlite:///attendance.db')
 if DATABASE_URL and DATABASE_URL.startswith('postgres://'):
     DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
 
-# Configure engine options for Supabase SSL connection
-engine_options = {
-    'pool_pre_ping': True,
-    'pool_recycle': 300,
-}
+print(f"📊 Database URL: {DATABASE_URL[:50]}...")
 
-# Add SSL configuration for Supabase PostgreSQL
+# =====================================================
+# ENGINE FIX: Create engine with proper SSL settings for Supabase
+# =====================================================
 if DATABASE_URL and 'postgresql' in DATABASE_URL:
-    engine_options['connect_args'] = {
-        'sslmode': 'require',
-        'connect_timeout': 10
+    # Use create_engine with proper SSL configuration for Supabase on Render
+    engine = create_engine(
+        DATABASE_URL,
+        poolclass=QueuePool,
+        pool_pre_ping=True,
+        pool_recycle=300,
+        connect_args={
+            'sslmode': 'require',
+            'connect_timeout': 10
+        }
+    )
+    
+    # Create scoped session
+    db_session = scoped_session(sessionmaker(bind=engine))
+    
+    # Configure Flask-SQLAlchemy to use our custom engine
+    app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        'engine': engine,
+        'session': db_session
     }
-
-app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SQLALCHEMY_ENGINE_OPTIONS'] = engine_options
-
-db = SQLAlchemy(app)
+    
+    db = SQLAlchemy(app)
+    db.session = db_session
+else:
+    # SQLite configuration (local development)
+    app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    db = SQLAlchemy(app)
 
 # Supabase config
 SUPABASE_URL = 'https://sfwhsgrphfrsckzqquxp.supabase.co'
 ADMIN_PASSWORD = 'RAV4Adventure2019'
+
+# Late threshold time (08:15 AM)
+LATE_THRESHOLD = time(8, 15)
 
 # =====================================================
 # DATABASE MODELS
@@ -170,37 +203,48 @@ def calculate_leave_days(start_date, end_date):
     return total_days
 
 
+def is_late_arrival(clock_in_time):
+    """Check if the clock-in time is after 08:15 AM"""
+    if not clock_in_time:
+        return False
+    return clock_in_time > LATE_THRESHOLD
+
+
 def seed_staff():
     """Pre-populate 22 staff members"""
-    if Staff.query.count() > 0:
-        return
-    
-    staff_members = [
-        "Peter Nyawade", "Tonny Odongo", "Eric Kamau", "Kelvin Omondi",
-        "Ottawa Kinsvoscko", "Riziki Merriment", "Margaret Muthoni",
-        "Oscar Akala", "Craig Mwendwa", "Mark Okere", "Joash Amutavi",
-        "Julius Singila", "Wesonga Wilfred", "Innocent Mogaka",
-        "Nelson Kasiki", "Fredrick Owino", "Bentah Akinyi", "Mahmood Mir",
-        "Sharon Akinyi", "Kipsang Kipsetim", "Dennis Kipkemoi", "David Makau"
-    ]
-    
-    for i, name in enumerate(staff_members, 1):
-        parts = name.strip().split()
-        first = parts[0]
-        last = ' '.join(parts[1:]) if len(parts) > 1 else ''
+    try:
+        if Staff.query.count() > 0:
+            return
         
-        staff = Staff(
-            employee_code=f"EMP{str(i).zfill(3)}",
-            first_name=first,
-            last_name=last,
-            join_date=date.today(),
-            department='Operations',
-            leave_balance=21
-        )
-        db.session.add(staff)
-    
-    db.session.commit()
-    print(f"✅ Seeded {len(staff_members)} staff members")
+        staff_members = [
+            "Peter Nyawade", "Tonny Odongo", "Eric Kamau", "Kelvin Omondi",
+            "Ottawa Kinsvoscko", "Riziki Merriment", "Margaret Muthoni",
+            "Oscar Akala", "Craig Mwendwa", "Mark Okere", "Joash Amutavi",
+            "Julius Singila", "Wesonga Wilfred", "Innocent Mogaka",
+            "Nelson Kasiki", "Fredrick Owino", "Bentah Akinyi", "Mahmood Mir",
+            "Sharon Akinyi", "Kipsang Kipsetim", "Dennis Kipkemoi", "David Makau"
+        ]
+        
+        for i, name in enumerate(staff_members, 1):
+            parts = name.strip().split()
+            first = parts[0]
+            last = ' '.join(parts[1:]) if len(parts) > 1 else ''
+            
+            staff = Staff(
+                employee_code=f"EMP{str(i).zfill(3)}",
+                first_name=first,
+                last_name=last,
+                join_date=date.today(),
+                department='Operations',
+                leave_balance=21
+            )
+            db.session.add(staff)
+        
+        db.session.commit()
+        print(f"✅ Seeded {len(staff_members)} staff members")
+    except Exception as e:
+        print(f"⚠️  Error seeding staff: {e}")
+        db.session.rollback()
 
 
 # =====================================================
@@ -210,16 +254,24 @@ def seed_staff():
 @app.route('/')
 def index():
     """Home page - Staff Clock In/Out and Leave Request"""
-    staff_members = Staff.query.filter_by(is_active=True).all()
-    today = date.today()
-    
-    today_attendance = Attendance.query.filter_by(work_date=today).all()
-    attendance_dict = {a.staff_id: a for a in today_attendance}
-    
-    return render_template('staff/index.html', 
-                          staff=staff_members, 
-                          today=today,
-                          attendance=attendance_dict)
+    try:
+        staff_members = Staff.query.filter_by(is_active=True).all()
+        today = date.today()
+        
+        today_attendance = Attendance.query.filter_by(work_date=today).all()
+        attendance_dict = {a.staff_id: a for a in today_attendance}
+        
+        return render_template('staff/index.html', 
+                              staff=staff_members, 
+                              today=today,
+                              attendance=attendance_dict)
+    except Exception as e:
+        print(f"❌ ERROR in index: {str(e)}")
+        return render_template('staff/index.html', 
+                              staff=[], 
+                              today=date.today(),
+                              attendance={},
+                              error=str(e))
 
 
 @app.route('/debug')
@@ -254,20 +306,29 @@ def admin_home():
 
 @app.route('/admin/dashboard')
 def admin_dashboard():
-    """Admin dashboard"""
+    """Admin dashboard - with error handling"""
     if not session.get('admin_logged_in'):
         return redirect(url_for('admin_login'))
     
-    staff_members = Staff.query.filter_by(is_active=True).all()
-    today = date.today()
-    today_attendance = Attendance.query.filter_by(work_date=today).all()
-    pending_leaves = LeaveRequest.query.filter_by(status='Pending').all()
-    
-    return render_template('admin/dashboard.html', 
-                         staff=staff_members,
-                         attendance=today_attendance,
-                         pending_leaves=pending_leaves,
-                         today=today)
+    try:
+        staff_members = Staff.query.filter_by(is_active=True).all()
+        today = date.today()
+        today_attendance = Attendance.query.filter_by(work_date=today).all()
+        pending_leaves = LeaveRequest.query.filter_by(status='Pending').all()
+        
+        return render_template('admin/dashboard.html', 
+                             staff=staff_members,
+                             attendance=today_attendance,
+                             pending_leaves=pending_leaves,
+                             today=today)
+    except Exception as e:
+        print(f"❌ ERROR in admin_dashboard: {str(e)}")
+        return render_template('admin/dashboard.html', 
+                             staff=[],
+                             attendance=[],
+                             pending_leaves=[],
+                             today=date.today(),
+                             error=f"Database error: {str(e)}")
 
 
 @app.route('/admin/login', methods=['POST'])
@@ -297,7 +358,7 @@ def admin_input():
 
 @app.route('/admin/leave')
 def admin_leave():
-    """Admin leave management"""
+    """Admin leave management - with error handling"""
     if not session.get('admin_logged_in'):
         return redirect(url_for('admin_login'))
     
@@ -321,12 +382,35 @@ def admin_leave():
 
 @app.route('/api/employees', methods=['GET'])
 def get_employees():
-    """Get all employees"""
+    """Get all employees - with 08:15 AM late flagging"""
     try:
         staff_members = Staff.query.filter_by(is_active=True).all()
+        
+        # Check today's attendance for late arrivals
+        today = date.today()
+        today_attendance = Attendance.query.filter_by(work_date=today).all()
+        attendance_dict = {a.staff_id: a for a in today_attendance}
+        
+        result = []
+        for staff in staff_members:
+            staff_dict = staff.to_dict()
+            
+            # Check if late today
+            att = attendance_dict.get(staff.id)
+            if att and att.clock_in:
+                staff_dict['is_late_today'] = is_late_arrival(att.clock_in)
+                if staff_dict['is_late_today']:
+                    staff_dict['late_minutes'] = (
+                        (datetime.combine(date.today(), att.clock_in) - datetime.combine(date.today(), LATE_THRESHOLD)).total_seconds() / 60
+                    )
+            else:
+                staff_dict['is_late_today'] = False
+            
+            result.append(staff_dict)
+        
         return jsonify({
             'success': True,
-            'employees': [s.to_dict() for s in staff_members]
+            'employees': result
         })
     except Exception as e:
         print(f"❌ ERROR loading employees: {str(e)}")
@@ -338,12 +422,38 @@ def get_employees():
 
 @app.route('/api/staff', methods=['GET'])
 def get_staff():
-    """Get all staff"""
-    staff_members = Staff.query.filter_by(is_active=True).all()
-    return jsonify({
-        'success': True,
-        'staff': [s.to_dict() for s in staff_members]
-    })
+    """Get all staff - with 08:15 AM late flagging"""
+    try:
+        staff_members = Staff.query.filter_by(is_active=True).all()
+        
+        # Check today's attendance for late arrivals
+        today = date.today()
+        today_attendance = Attendance.query.filter_by(work_date=today).all()
+        attendance_dict = {a.staff_id: a for a in today_attendance}
+        
+        result = []
+        for staff in staff_members:
+            staff_dict = staff.to_dict()
+            
+            # Check if late today
+            att = attendance_dict.get(staff.id)
+            if att and att.clock_in:
+                staff_dict['is_late_today'] = is_late_arrival(att.clock_in)
+            else:
+                staff_dict['is_late_today'] = False
+            
+            result.append(staff_dict)
+        
+        return jsonify({
+            'success': True,
+            'staff': result
+        })
+    except Exception as e:
+        print(f"❌ ERROR loading staff: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Database error: {str(e)}'
+        }), 500
 
 
 @app.route('/api/attendance', methods=['GET'])
@@ -357,9 +467,17 @@ def get_all_attendance():
             query = query.filter(Attendance.work_date >= start_date)
         
         attendance = query.order_by(Attendance.work_date.desc()).all()
+        
+        # Add late flag to each record
+        result = []
+        for att in attendance:
+            att_dict = att.to_dict()
+            att_dict['is_late'] = is_late_arrival(att.clock_in)
+            result.append(att_dict)
+        
         return jsonify({
             'success': True,
-            'attendance': [a.to_dict() for a in attendance]
+            'attendance': result
         })
     except Exception as e:
         print(f"❌ ERROR loading attendance: {str(e)}")
@@ -371,48 +489,56 @@ def get_all_attendance():
 
 @app.route('/api/attendance/today', methods=['GET'])
 def get_today_attendance():
-    """Get today's attendance for all staff"""
-    today = date.today()
-    attendance = Attendance.query.filter_by(work_date=today).all()
-    staff_members = Staff.query.filter_by(is_active=True).all()
-    
-    result = []
-    for staff in staff_members:
-        att = next((a for a in attendance if a.staff_id == staff.id), None)
+    """Get today's attendance for all staff - with 08:15 AM late flagging"""
+    try:
+        today = date.today()
+        attendance = Attendance.query.filter_by(work_date=today).all()
+        staff_members = Staff.query.filter_by(is_active=True).all()
         
-        if att:
-            status = 'Present' if not att.clock_out else 'Clocked Out'
-            clock_in = att.clock_in.strftime('%H:%M') if att.clock_in else ''
-            clock_out = att.clock_out.strftime('%H:%M') if att.clock_out else ''
-            is_late = att.is_late
-        else:
-            status = 'Not Clocked In'
-            clock_in = ''
-            clock_out = ''
-            is_late = False
+        result = []
+        for staff in staff_members:
+            att = next((a for a in attendance if a.staff_id == staff.id), None)
+            
+            if att:
+                status = 'Present' if not att.clock_out else 'Clocked Out'
+                clock_in = att.clock_in.strftime('%H:%M') if att.clock_in else ''
+                clock_out = att.clock_out.strftime('%H:%M') if att.clock_out else ''
+                # Check if late based on 08:15 AM threshold
+                is_late = is_late_arrival(att.clock_in)
+            else:
+                status = 'Not Clocked In'
+                clock_in = ''
+                clock_out = ''
+                is_late = False
+            
+            result.append({
+                'id': staff.id,
+                'emp_id': staff.id,
+                'employee_name': f"{staff.first_name} {staff.last_name}",
+                'employee_code': staff.employee_code,
+                'status': status,
+                'clock_in': clock_in,
+                'clock_out': clock_out,
+                'is_late': is_late,
+                'leave_balance': staff.leave_balance
+            })
         
-        result.append({
-            'id': staff.id,
-            'emp_id': staff.id,
-            'employee_name': f"{staff.first_name} {staff.last_name}",
-            'employee_code': staff.employee_code,
-            'status': status,
-            'clock_in': clock_in,
-            'clock_out': clock_out,
-            'is_late': is_late,
-            'leave_balance': staff.leave_balance
+        return jsonify({
+            'success': True,
+            'date': today.isoformat(),
+            'employees': result
         })
-    
-    return jsonify({
-        'success': True,
-        'date': today.isoformat(),
-        'employees': result
-    })
+    except Exception as e:
+        print(f"❌ ERROR loading today's attendance: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Database error: {str(e)}'
+        }), 500
 
 
 @app.route('/api/attendance', methods=['POST'])
 def create_attendance():
-    """Clock in/out"""
+    """Clock in/out - with 08:15 AM late detection"""
     data = request.get_json()
     
     staff_id = data.get('staff_id') or data.get('emp_id')
@@ -425,53 +551,69 @@ def create_attendance():
     
     clock_in = datetime.strptime(clock_in_str, '%H:%M').time() if clock_in_str else None
     
-    # Check if late (after 08:15 AM)
-    is_late = False
-    late_threshold = time(8, 15)
-    if clock_in and clock_in > late_threshold:
-        is_late = True
+    # Check if late (after 08:15 AM) - 08:15 AM Logic
+    is_late = is_late_arrival(clock_in)
     
     is_saturday = work_date.weekday() == 5
     day_type = 'Saturday Half Day' if is_saturday else 'Full Day'
     
-    existing = Attendance.query.filter_by(staff_id=staff_id, work_date=work_date).first()
-    
-    if existing:
-        if clock_out_str:
-            existing.clock_out = datetime.strptime(clock_out_str, '%H:%M').time()
-        existing.status = 'Present'
+    try:
+        existing = Attendance.query.filter_by(staff_id=staff_id, work_date=work_date).first()
+        
+        if existing:
+            if clock_out_str:
+                existing.clock_out = datetime.strptime(clock_out_str, '%H:%M').time()
+            existing.status = 'Present'
+            db.session.commit()
+            return jsonify({
+                'success': True, 
+                'message': 'Clock out recorded', 
+                'attendance': existing.to_dict()
+            })
+        
+        attendance = Attendance(
+            staff_id=staff_id,
+            work_date=work_date,
+            clock_in=clock_in,
+            day_type=day_type,
+            is_late=is_late,
+            status='Present' if not is_late else 'Late'
+        )
+        
+        db.session.add(attendance)
         db.session.commit()
-        return jsonify({'success': True, 'message': 'Clock out recorded', 'attendance': existing.to_dict()})
-    
-    attendance = Attendance(
-        staff_id=staff_id,
-        work_date=work_date,
-        clock_in=clock_in,
-        day_type=day_type,
-        is_late=is_late,
-        status='Present' if not is_late else 'Late'
-    )
-    
-    db.session.add(attendance)
-    db.session.commit()
-    
-    return jsonify({
-        'success': True,
-        'message': 'Clock in recorded' + (' (LATE - After 08:15 AM)' if is_late else ''),
-        'attendance': attendance.to_dict(),
-        'is_late': is_late
-    })
+        
+        return jsonify({
+            'success': True,
+            'message': 'Clock in recorded' + (' (LATE - After 08:15 AM)' if is_late else ''),
+            'attendance': attendance.to_dict(),
+            'is_late': is_late
+        })
+    except Exception as e:
+        print(f"❌ ERROR creating attendance: {str(e)}")
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': f'Database error: {str(e)}'
+        }), 500
 
 
 @app.route('/api/leave-requests', methods=['GET', 'POST'])
 def leave_requests():
     """Get or create leave requests"""
     if request.method == 'GET':
-        leave_requests_list = LeaveRequest.query.order_by(LeaveRequest.created_at.desc()).all()
-        return jsonify({
-            'success': True,
-            'leave_requests': [lr.to_dict() for lr in leave_requests_list]
-        })
+        try:
+            leave_requests_list = LeaveRequest.query.order_by(LeaveRequest.created_at.desc()).all()
+            return jsonify({
+                'success': True,
+                'leave_requests': [lr.to_dict() for lr in leave_requests_list]
+            })
+        except Exception as e:
+            print(f"❌ ERROR loading leave requests: {str(e)}")
+            return jsonify({
+                'success': False,
+                'error': f'Database error: {str(e)}'
+            }), 500
     
     data = request.get_json()
     
@@ -487,37 +629,45 @@ def leave_requests():
     if not staff_id:
         return jsonify({'success': False, 'error': 'Employee ID is required'}), 400
     
-    staff = db.session.get(Staff, staff_id)
-    if not staff:
-        return jsonify({'success': False, 'error': 'Staff not found'}), 404
-    
-    total_days = calculate_leave_days(start_date, end_date)
-    
-    if leave_type == 'Annual':
-        if staff.leave_balance < total_days:
-            return jsonify({
-                'success': False, 
-                'error': f'Insufficient leave balance. Available: {staff.leave_balance} days'
-            }), 400
-    
-    leave_request = LeaveRequest(
-        staff_id=staff_id,
-        leave_type=leave_type,
-        start_date=start_date,
-        end_date=end_date,
-        total_days=total_days,
-        reason=reason,
-        status='Pending'
-    )
-    
-    db.session.add(leave_request)
-    db.session.commit()
-    
-    return jsonify({
-        'success': True,
-        'message': 'Leave request submitted',
-        'leave_request': leave_request.to_dict()
-    })
+    try:
+        staff = db.session.get(Staff, staff_id)
+        if not staff:
+            return jsonify({'success': False, 'error': 'Staff not found'}), 404
+        
+        total_days = calculate_leave_days(start_date, end_date)
+        
+        if leave_type == 'Annual':
+            if staff.leave_balance < total_days:
+                return jsonify({
+                    'success': False, 
+                    'error': f'Insufficient leave balance. Available: {staff.leave_balance} days'
+                }), 400
+        
+        leave_request = LeaveRequest(
+            staff_id=staff_id,
+            leave_type=leave_type,
+            start_date=start_date,
+            end_date=end_date,
+            total_days=total_days,
+            reason=reason,
+            status='Pending'
+        )
+        
+        db.session.add(leave_request)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Leave request submitted',
+            'leave_request': leave_request.to_dict()
+        })
+    except Exception as e:
+        print(f"❌ ERROR creating leave request: {str(e)}")
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': f'Database error: {str(e)}'
+        }), 500
 
 
 @app.route('/api/leave-requests/<int:request_id>/approve', methods=['POST'])
@@ -526,28 +676,36 @@ def approve_leave(request_id):
     if not session.get('admin_logged_in'):
         return jsonify({'success': False, 'error': 'Unauthorized'}), 401
     
-    leave_request = LeaveRequest.query.get(request_id)
-    if not leave_request:
-        return jsonify({'success': False, 'error': 'Request not found'}), 404
-    
-    staff = Staff.query.get(leave_request.staff_id)
-    
-    if leave_request.leave_type == 'Annual' and staff:
-        staff.leave_balance -= leave_request.total_days
-        if staff.leave_balance < 0:
-            staff.leave_balance = 0
-    
-    leave_request.status = 'Approved'
-    leave_request.approved_by = 1
-    leave_request.approved_date = datetime.utcnow()
-    
-    db.session.commit()
-    
-    return jsonify({
-        'success': True,
-        'message': 'Leave approved',
-        'leave_request': leave_request.to_dict()
-    })
+    try:
+        leave_request = LeaveRequest.query.get(request_id)
+        if not leave_request:
+            return jsonify({'success': False, 'error': 'Request not found'}), 404
+        
+        staff = Staff.query.get(leave_request.staff_id)
+        
+        if leave_request.leave_type == 'Annual' and staff:
+            staff.leave_balance -= leave_request.total_days
+            if staff.leave_balance < 0:
+                staff.leave_balance = 0
+        
+        leave_request.status = 'Approved'
+        leave_request.approved_by = 1
+        leave_request.approved_date = datetime.utcnow()
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Leave approved',
+            'leave_request': leave_request.to_dict()
+        })
+    except Exception as e:
+        print(f"❌ ERROR approving leave: {str(e)}")
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': f'Database error: {str(e)}'
+        }), 500
 
 
 @app.route('/api/leave-requests/<int:request_id>/reject', methods=['POST'])
@@ -556,33 +714,48 @@ def reject_leave(request_id):
     if not session.get('admin_logged_in'):
         return jsonify({'success': False, 'error': 'Unauthorized'}), 401
     
-    leave_request = LeaveRequest.query.get(request_id)
-    if not leave_request:
-        return jsonify({'success': False, 'error': 'Request not found'}), 404
-    
-    leave_request.status = 'Rejected'
-    db.session.commit()
-    
-    return jsonify({
-        'success': True,
-        'message': 'Leave rejected',
-        'leave_request': leave_request.to_dict()
-    })
+    try:
+        leave_request = LeaveRequest.query.get(request_id)
+        if not leave_request:
+            return jsonify({'success': False, 'error': 'Request not found'}), 404
+        
+        leave_request.status = 'Rejected'
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Leave rejected',
+            'leave_request': leave_request.to_dict()
+        })
+    except Exception as e:
+        print(f"❌ ERROR rejecting leave: {str(e)}")
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': f'Database error: {str(e)}'
+        }), 500
 
 
 @app.route('/api/leave/balance/<int:staff_id>', methods=['GET'])
 def get_leave_balance(staff_id):
     """Get staff leave balance"""
-    staff = Staff.query.get(staff_id)
-    if not staff:
-        return jsonify({'success': False, 'error': 'Staff not found'}), 404
-    
-    return jsonify({
-        'success': True,
-        'staff_id': staff_id,
-        'leave_balance': staff.leave_balance,
-        'is_low': staff.leave_balance <= 3
-    })
+    try:
+        staff = Staff.query.get(staff_id)
+        if not staff:
+            return jsonify({'success': False, 'error': 'Staff not found'}), 404
+        
+        return jsonify({
+            'success': True,
+            'staff_id': staff_id,
+            'leave_balance': staff.leave_balance,
+            'is_low': staff.leave_balance <= 3
+        })
+    except Exception as e:
+        print(f"❌ ERROR getting leave balance: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Database error: {str(e)}'
+        }), 500
 
 
 @app.route('/api/reports/fiscal-year-summary')
@@ -713,6 +886,7 @@ def reset_annual_leave():
         })
     except Exception as e:
         print(f"❌ ERROR resetting annual leave: {str(e)}")
+        db.session.rollback()
         return jsonify({
             'success': False,
             'error': f'Database error: {str(e)}'
@@ -730,6 +904,7 @@ if __name__ == '__main__':
     print(f"{'='*60}")
     print(f"Database: {db_type}")
     print(f"URL: {DATABASE_URL[:50]}...")
+    print(f"Late Threshold: {LATE_THRESHOLD}")
     print(f"{'='*60}\n")
     
     with app.app_context():
