@@ -53,7 +53,7 @@ def generate_leave_pdf():
 '''
 
 # Read app.py
-with open('app.py', 'r') as f:
+with open('app.py', 'r', encoding='utf-8') as f:
     content = f.read()
 
 # Remove the incorrectly placed routes (after app.run)
@@ -89,7 +89,7 @@ else:
     print("Could not find main block")
 
 # Write back
-with open('app.py', 'w') as f:
+with open('app.py', 'w', encoding='utf-8') as f:
     f.write(content)
 
 print("Done!")

@@ -76,7 +76,8 @@ class Staff(db.Model):
     department = db.Column(db.String(50))
     join_date = db.Column(db.Date, nullable=False)
     is_active = db.Column(db.Boolean, default=True)
-    leave_balance = db.Column(db.Integer, default=21)
+    leave_balance = db.Column(db.Integer, default=21)  # Annual leave (21 days)
+    sick_leave_balance = db.Column(db.Integer, default=7)  # Sick leave (7 days)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     def to_dict(self):
@@ -304,13 +305,78 @@ def admin_dashboard():
         staff_members = Staff.query.filter_by(is_active=True).all()
         today = date.today()
         today_attendance = Attendance.query.filter_by(work_date=today).all()
+        
+        # Handle month filter for leave requests
+        selected_month = request.args.get('month_filter', '')
+        
+        # Get pending leaves
         pending_leaves = LeaveRequest.query.filter_by(status='Pending').all()
+        
+        # Get approved leaves for the filtered month (for planning)
+        if selected_month:
+            month_map = {'February': 2, 'March': 3, 'June': 6}
+            month_num = month_map.get(selected_month)
+            if month_num:
+                year = today.year
+                start_date = date(year, month_num, 1)
+                if month_num == 12:
+                    end_date = date(year + 1, 1, 1) - timedelta(days=1)
+                else:
+                    end_date = date(year, month_num + 1, 1) - timedelta(days=1)
+                
+                # Get approved leaves in the selected month for planning
+                approved_leaves = LeaveRequest.query.filter(
+                    LeaveRequest.status == 'Approved',
+                    LeaveRequest.start_date <= end_date,
+                    LeaveRequest.end_date >= start_date
+                ).all()
+            else:
+                approved_leaves = []
+        else:
+            # Show all approved leaves for planning
+            approved_leaves = LeaveRequest.query.filter_by(status='Approved').all()
+        
+        # Build employee summary with days worked and leave balances
+        current_month = today.strftime('%B %Y')
+        
+        # Get first and last day of current month
+        first_day_of_month = today.replace(day=1)
+        if today.month == 12:
+            last_day_of_month = today.replace(year=today.year+1, month=1, day=1) - timedelta(days=1)
+        else:
+            last_day_of_month = today.replace(month=today.month+1, day=1) - timedelta(days=1)
+        
+        employee_summary = []
+        for emp in staff_members:
+            # Calculate days worked this month
+            days_worked = Attendance.query.filter(
+                Attendance.staff_id == emp.id,
+                Attendance.work_date >= first_day_of_month,
+                Attendance.work_date <= last_day_of_month
+            ).count()
+            
+            employee_summary.append({
+                'name': f"{emp.first_name} {emp.last_name}",
+                'employee_code': emp.employee_code,
+                'department': emp.department or 'Operations',
+                'days_worked': days_worked,
+                'annual_leave': emp.leave_balance,
+                'sick_leave': emp.sick_leave_balance
+            })
+        
+        # Get all approved leaves for "On Leave" status in attendance
+        all_approved_leaves = LeaveRequest.query.filter_by(status='Approved').all()
         
         return render_template('admin/dashboard.html', 
                              staff=staff_members,
                              attendance=today_attendance,
                              pending_leaves=pending_leaves,
-                             today=today)
+                             today=today,
+                             employee_summary=employee_summary,
+                             current_month=current_month,
+                             selected_month=selected_month,
+                             approved_leaves=approved_leaves,
+                             all_approved_leaves=all_approved_leaves)
     except Exception as e:
         print(f"❌ ERROR in admin_dashboard: {str(e)}")
         return render_template('admin/dashboard.html', 
@@ -318,6 +384,11 @@ def admin_dashboard():
                              attendance=[],
                              pending_leaves=[],
                              today=date.today(),
+                             employee_summary=[],
+                             current_month='',
+                             selected_month='',
+                             approved_leaves=[],
+                             all_approved_leaves=[],
                              error=f"Database error: {str(e)}")
 
 
@@ -662,7 +733,7 @@ def leave_requests():
 
 @app.route('/api/leave-requests/<int:request_id>/approve', methods=['POST'])
 def approve_leave(request_id):
-    """Approve leave"""
+    """Approve leave - deducts from balance and creates On Leave attendance"""
     if not session.get('admin_logged_in'):
         return jsonify({'success': False, 'error': 'Unauthorized'}), 401
     
@@ -673,10 +744,40 @@ def approve_leave(request_id):
         
         staff = db.session.get(Staff, leave_request.staff_id)
         
-        if leave_request.leave_type == 'Annual' and staff:
-            staff.leave_balance -= leave_request.total_days
-            if staff.leave_balance < 0:
-                staff.leave_balance = 0
+        # Deduct leave from appropriate balance
+        if staff:
+            if leave_request.leave_type == 'Annual':
+                staff.leave_balance -= leave_request.total_days
+                if staff.leave_balance < 0:
+                    staff.leave_balance = 0
+            elif leave_request.leave_type == 'Sick':
+                staff.sick_leave_balance -= leave_request.total_days
+                if staff.sick_leave_balance < 0:
+                    staff.sick_leave_balance = 0
+        
+        # Create "On Leave" attendance records for each day of leave
+        current_date = leave_request.start_date
+        while current_date <= leave_request.end_date:
+            if current_date.weekday() != 6:
+                existing_att = Attendance.query.filter_by(
+                    staff_id=leave_request.staff_id,
+                    work_date=current_date
+                ).first()
+                
+                if not existing_att:
+                    leave_attendance = Attendance(
+                        staff_id=leave_request.staff_id,
+                        work_date=current_date,
+                        clock_in=time(0, 0),
+                        clock_out=time(0, 0),
+                        day_type='On Leave',
+                        status='On Leave',
+                        is_late=False,
+                        notes=f"{leave_request.leave_type} Leave"
+                    )
+                    db.session.add(leave_attendance)
+            
+            current_date = current_date + timedelta(days=1)
         
         leave_request.status = 'Approved'
         leave_request.approved_by = 1
@@ -686,7 +787,7 @@ def approve_leave(request_id):
         
         return jsonify({
             'success': True,
-            'message': 'Leave approved',
+            'message': 'Leave approved and deducted from balance',
             'leave_request': leave_request.to_dict()
         })
     except Exception as e:

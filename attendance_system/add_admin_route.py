@@ -1,5 +1,5 @@
 # Read the file
-with open('app.py', 'r') as f:
+with open('app.py', 'r', encoding='utf-8') as f:
     content = f.read()
 
 # Find and add the new route after the index route
@@ -23,7 +23,7 @@ def admin_input():
 fixed_content = content.replace(old_code, new_code)
 
 # Write back
-with open('app.py', 'w') as f:
+with open('app.py', 'w', encoding='utf-8') as f:
     f.write(fixed_content)
 
 print('Added /admin-input route!')

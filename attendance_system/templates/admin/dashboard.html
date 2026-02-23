@@ -61,12 +61,112 @@
         </form>
     </section>
     {% else %}
-    <!-- Date Display -->
+    <!-- Time-based Greeting -->
     <div class="bg-white rounded-xl card-shadow p-4 mt-4 mb-4">
+        <p class="text-2xl font-bold text-gray-800">
+            <span id="greeting-text">Good Morning!</span> 
+            <span class="text-blue-600">Welcome to the Admin Dashboard</span>
+        </p>
         <p class="text-lg font-semibold text-gray-800">
             Today's Date: <span class="text-blue-600">{{ today.strftime('%A, %B %d, %Y') }}</span>
         </p>
     </div>
+    
+    <!-- Month Filter for Leave Planning -->
+    <section class="bg-white rounded-xl card-shadow p-4 mb-4">
+        <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+            <svg class="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+            </svg>
+            Leave Planning - Filter by Month
+        </h2>
+        
+        <form method="GET" action="{{ url_for('admin_dashboard') }}" class="flex flex-wrap gap-4 items-center">
+            <label class="text-gray-700 font-semibold">Select Month:</label>
+            <select 
+                name="month_filter" 
+                id="month-filter"
+                class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                onchange="this.form.submit()"
+            >
+                <option value="">All Approved Leaves</option>
+                <option value="February" {% if selected_month == 'February' %}selected{% endif %}>February</option>
+                <option value="March" {% if selected_month == 'March' %}selected{% endif %}>March</option>
+                <option value="June" {% if selected_month == 'June' %}selected{% endif %}>June</option>
+            </select>
+            <a href="{{ url_for('admin_dashboard') }}" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-gray-700 text-sm transition-colors">
+                Clear Filter
+            </a>
+        </form>
+        
+        {% if selected_month %}
+        <div class="mt-4 p-3 bg-indigo-50 rounded-lg">
+            <p class="text-indigo-700 font-semibold">Showing approved leave requests for <span class="text-indigo-900">{{ selected_month }}</span></p>
+        </div>
+        {% endif %}
+    </section>
+    
+    <!-- Approved Leaves Summary Table (for Planning) -->
+    {% if approved_leaves %}
+    <section class="bg-white rounded-xl card-shadow p-4 md:p-6 mb-4">
+        <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+            <svg class="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+            </svg>
+            Approved Leave Summary - {{ selected_month if selected_month else 'All' }}
+        </h2>
+        
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-gray-50">
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Department</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Month</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Leave Balance (Annual / Sick)</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    {% for leave in approved_leaves %}
+                    {% set staff_member = namespace(name='Unknown', department='Operations') %}
+                    {% for s in staff %}
+                        {% if s.id == leave.staff_id %}
+                            {% set staff_member.name = s.first_name ~ ' ' ~ s.last_name %}
+                            {% set staff_member.department = s.department or 'Operations' %}
+                        {% endif %}
+                    {% endfor %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-3 py-2 font-medium text-gray-900">
+                            {{ staff_member.name }}
+                        </td>
+                        <td class="px-3 py-2 text-gray-600">
+                            {{ staff_member.department }}
+                        </td>
+                        <td class="px-3 py-2 text-gray-600">
+                            {% if leave.start_date.month == 2 %}February
+                            {% elif leave.start_date.month == 3 %}March
+                            {% elif leave.start_date.month == 6 %}June
+                            {% else %}{{ leave.start_date.strftime('%B') }}{% endif %}
+                        </td>
+                        <td class="px-3 py-2">
+                            {% for s in staff %}
+                                {% if s.id == leave.staff_id %}
+                                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                        {{ s.leave_balance }} / 21
+                                    </span>
+                                    <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 ml-1">
+                                        {{ s.sick_leave_balance }} / 7
+                                    </span>
+                                {% endif %}
+                            {% endfor %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+    {% endif %}
     
     <!-- Today's Attendance -->
     <section class="bg-white rounded-xl card-shadow p-4 md:p-6 mb-4">
@@ -74,7 +174,8 @@
             <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
             </svg>
-            Today's Attendance (Late arrivals in <span class="font-bold text-red-600">RED</span>)
+            Today's Attendance 
+            <span class="text-sm font-normal text-gray-500 ml-2">(Present: <span class="text-green-600 font-bold">GREEN</span> | Late: <span class="text-red-600 font-bold">RED</span> | On Leave: <span class="text-purple-600 font-bold">PURPLE</span>)</span>
         </h2>
         
         <div class="overflow-x-auto">
@@ -90,7 +191,7 @@
                 </thead>
                 <tbody class="divide-y divide-gray-200">
                     {% for s in staff %}
-                    {% set att = namespace(found=false, clock_in='', clock_out='', is_late=false, day_type='-') %}
+                    {% set att = namespace(found=false, clock_in='', clock_out='', is_late=false, day_type='-', status='Not Clocked In') %}
                     {% for a in attendance %}
                         {% if a.staff_id == s.id %}
                             {% set att.found = true %}
@@ -98,6 +199,14 @@
                             {% set att.clock_out = a.clock_out.strftime('%H:%M') if a.clock_out else '-' %}
                             {% set att.is_late = a.is_late %}
                             {% set att.day_type = a.day_type %}
+                            {% set att.status = a.status %}
+                        {% endif %}
+                    {% endfor %}
+                    <!-- Check if employee is on approved leave today -->
+                    {% set is_on_leave = false %}
+                    {% for leave in all_approved_leaves %}
+                        {% if leave.staff_id == s.id and today >= leave.start_date and today <= leave.end_date %}
+                            {% set is_on_leave = true %}
                         {% endif %}
                     {% endfor %}
                     <tr class="hover:bg-gray-50">
@@ -106,7 +215,11 @@
                             <span class="text-gray-500 text-xs">({{ s.employee_code }})</span>
                         </td>
                         <td class="px-3 py-2">
-                            {% if att.found %}
+                            {% if is_on_leave %}
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">
+                                    On Leave
+                                </span>
+                            {% elif att.found %}
                                 <span class="px-2 py-1 text-xs font-semibold rounded-full {% if att.is_late %}bg-red-100 text-red-800{% else %}bg-green-100 text-green-800{% endif %}">
                                     {% if att.is_late %}LATE{% else %}Present{% endif %}
                                 </span>
@@ -117,13 +230,13 @@
                             {% endif %}
                         </td>
                         <td class="px-3 py-2 {% if att.is_late %}font-bold text-red-600{% else %}text-gray-600{% endif %}">
-                            {{ att.clock_in }}
+                            {% if is_on_leave %}-{% else %}{{ att.clock_in }}{% endif %}
                         </td>
                         <td class="px-3 py-2 text-gray-600">
-                            {{ att.clock_out }}
+                            {% if is_on_leave %}-{% else %}{{ att.clock_out }}{% endif %}
                         </td>
                         <td class="px-3 py-2 text-gray-600">
-                            {{ att.day_type }}
+                            {% if is_on_leave %}On Leave{% else %}{{ att.day_type }}{% endif %}
                         </td>
                     </tr>
                     {% endfor %}
@@ -132,10 +245,22 @@
         </div>
         
         <!-- Summary -->
-        <div class="mt-4 grid grid-cols-3 gap-4 text-center">
+        <div class="mt-4 grid grid-cols-4 gap-4 text-center">
             {% set total_staff = staff|length %}
             {% set present_count = namespace(value=0) %}
             {% set late_count = namespace(value=0) %}
+            {% set on_leave_count = namespace(value=0) %}
+            {% for s in staff %}
+                {% set is_on_leave_today = false %}
+                {% for leave in all_approved_leaves %}
+                    {% if leave.staff_id == s.id and today >= leave.start_date and today <= leave.end_date %}
+                        {% set is_on_leave_today = true %}
+                    {% endif %}
+                {% endfor %}
+                {% if is_on_leave_today %}
+                    {% set on_leave_count.value = on_leave_count.value + 1 %}
+                {% endif %}
+            {% endfor %}
             {% for a in attendance %}
                 {% if a.is_late %}
                     {% set late_count.value = late_count.value + 1 %}
@@ -156,6 +281,60 @@
                 <div class="text-2xl font-bold text-red-600">{{ late_count.value }}</div>
                 <div class="text-xs text-gray-600">Late Arrivals</div>
             </div>
+            <div class="bg-purple-50 rounded-lg p-3">
+                <div class="text-2xl font-bold text-purple-600">{{ on_leave_count.value }}</div>
+                <div class="text-xs text-gray-600">On Leave</div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Employee Summary with Days Worked and Leave Balances -->
+    <section class="bg-white rounded-xl card-shadow p-4 md:p-6 mb-4">
+        <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+            <svg class="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+            </svg>
+            Employee Summary - {{ current_month }}
+        </h2>
+        
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-gray-50">
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Department</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Days Worked (This Month)</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Annual Leave</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Sick Leave</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    {% for emp in employee_summary %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-3 py-2 font-medium text-gray-900">
+                            {{ emp.name }}
+                            <span class="text-gray-500 text-xs">({{ emp.employee_code }})</span>
+                        </td>
+                        <td class="px-3 py-2 text-gray-600">
+                            {{ emp.department }}
+                        </td>
+                        <td class="px-3 py-2 text-gray-600">
+                            <span class="font-semibold text-blue-600">{{ emp.days_worked }}</span>
+                        </td>
+                        <td class="px-3 py-2">
+                            <span class="px-2 py-1 text-xs font-semibold rounded-full {% if emp.annual_leave <= 3 %}bg-red-100 text-red-800{% else %}bg-green-100 text-green-800{% endif %}">
+                                {{ emp.annual_leave }} / 21
+                            </span>
+                        </td>
+                        <td class="px-3 py-2">
+                            <span class="px-2 py-1 text-xs font-semibold rounded-full {% if emp.sick_leave <= 1 %}bg-red-100 text-red-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                                {{ emp.sick_leave }} / 7
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </section>
     
@@ -224,4 +403,24 @@
     </section>
     {% endif %}
 </main>
+
+<!-- Time-based Greeting JavaScript -->
+<script>
+    function updateGreeting() {
+        const now = new Date();
+        const hour = now.getHours();
+        let greeting = 'Good Morning!';
+        
+        if (hour >= 12 && hour < 17) {
+            greeting = 'Good Afternoon!';
+        } else if (hour >= 17) {
+            greeting = 'Good Evening!';
+        }
+        
+        document.getElementById('greeting-text').textContent = greeting;
+    }
+    
+    // Run on page load
+    updateGreeting();
+</script>
 {% endblock %}
