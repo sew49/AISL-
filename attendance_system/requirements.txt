@@ -1,8 +1,6 @@
 flask==3.0.0
-flask-sqlalchemy==3.1.1
-flask-migrate==4.0.5
+flask-sqlalchemy==3.0.5
+sqlalchemy==2.0.20
 python-dotenv==1.0.0
-requests==2.31.0
-gunicorn==21.2.0
 psycopg2-binary==2.9.9
-sqlalchemy==2.0.25
+gunicorn==21.2.0

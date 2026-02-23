@@ -1,6 +1,6 @@
 """
 Attendance System - Complete Single File App
-- SQLAlchemy with Supabase PostgreSQL
+- SQLAlchemy 2.0.20 with Flask-SQLAlchemy 3.0.5
 - 08:15 AM Rule (late arrivals in Bold Red)
 - 21-Day Leave Rule with Orange highlight for ≤3 days
 - Pre-populated 22 staff members
@@ -16,6 +16,7 @@ from datetime import datetime, date, time, timedelta
 
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import text
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -28,7 +29,6 @@ app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'aero_instrument_secure_key_2026')
 
 # Database URL - Production (Render) or Local fallback
-# Use environment variable if set (Render), otherwise use SQLite for local
 DATABASE_URL = os.environ.get('DATABASE_URL', 'sqlite:///attendance.db')
 
 # Fix for Supabase/Render: replace postgres:// with postgresql://
@@ -68,7 +68,7 @@ ADMIN_PASSWORD = 'RAV4Adventure2019'
 LATE_THRESHOLD = time(8, 15)
 
 # =====================================================
-# DATABASE MODELS
+# DATABASE MODELS (SQLAlchemy 2.0 compatible)
 # =====================================================
 
 class Staff(db.Model):
@@ -118,9 +118,13 @@ class Attendance(db.Model):
     notes = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
-    staff = db.relationship('Staff', backref='attendance_records')
+    # Define relationship using string reference to avoid circular import
+    staff = db.relationship('Staff', backref=db.backref('attendance_records', lazy='dynamic'))
     
     def to_dict(self):
+        staff_name = None
+        if self.staff:
+            staff_name = f"{self.staff.first_name} {self.staff.last_name}"
         return {
             'id': self.id,
             'emp_id': self.staff_id,
@@ -132,7 +136,7 @@ class Attendance(db.Model):
             'status': self.status,
             'is_late': self.is_late,
             'notes': self.notes,
-            'staff_name': f"{self.staff.first_name} {self.staff.last_name}" if self.staff else None
+            'staff_name': staff_name
         }
 
 
@@ -151,15 +155,19 @@ class LeaveRequest(db.Model):
     approved_date = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
-    staff = db.relationship('Staff', backref='leave_requests')
+    # Define relationship using string reference
+    staff = db.relationship('Staff', backref=db.backref('leave_requests', lazy='dynamic'))
     
     def to_dict(self):
+        staff_name = None
+        if self.staff:
+            staff_name = f"{self.staff.first_name} {self.staff.last_name}"
         return {
             'id': self.id,
             'request_id': self.id,
             'emp_id': self.staff_id,
             'staff_id': self.staff_id,
-            'staff_name': f"{self.staff.first_name} {self.staff.last_name}" if self.staff else None,
+            'staff_name': staff_name,
             'leave_type': self.leave_type,
             'start_date': self.start_date.isoformat() if self.start_date else None,
             'end_date': self.end_date.isoformat() if self.end_date else None,
@@ -660,11 +668,11 @@ def approve_leave(request_id):
         return jsonify({'success': False, 'error': 'Unauthorized'}), 401
     
     try:
-        leave_request = LeaveRequest.query.get(request_id)
+        leave_request = db.session.get(LeaveRequest, request_id)
         if not leave_request:
             return jsonify({'success': False, 'error': 'Request not found'}), 404
         
-        staff = Staff.query.get(leave_request.staff_id)
+        staff = db.session.get(Staff, leave_request.staff_id)
         
         if leave_request.leave_type == 'Annual' and staff:
             staff.leave_balance -= leave_request.total_days
@@ -698,7 +706,7 @@ def reject_leave(request_id):
         return jsonify({'success': False, 'error': 'Unauthorized'}), 401
     
     try:
-        leave_request = LeaveRequest.query.get(request_id)
+        leave_request = db.session.get(LeaveRequest, request_id)
         if not leave_request:
             return jsonify({'success': False, 'error': 'Request not found'}), 404
         
@@ -723,7 +731,7 @@ def reject_leave(request_id):
 def get_leave_balance(staff_id):
     """Get staff leave balance"""
     try:
-        staff = Staff.query.get(staff_id)
+        staff = db.session.get(Staff, staff_id)
         if not staff:
             return jsonify({'success': False, 'error': 'Staff not found'}), 404
         
