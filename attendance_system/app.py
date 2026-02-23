@@ -48,9 +48,10 @@ else:
 
 db = SQLAlchemy(app)
 
-# Create tables when module is imported (for Gunicorn/Production)
+# Add this right after db = SQLAlchemy(app)
 with app.app_context():
     db.create_all()
+    print("✅ Database tables created successfully!")
 
 # Supabase config
 SUPABASE_URL = 'https://sfwhsgrphfrsckzqquxp.supabase.co'
