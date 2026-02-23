@@ -36,7 +36,10 @@ engine_options = {
 
 # Add SSL configuration for Supabase PostgreSQL
 if DATABASE_URL and 'postgresql' in DATABASE_URL:
-    engine_options['connect_args'] = {'sslmode': 'require'}
+    engine_options['connect_args'] = {
+        'sslmode': 'require',
+        'connect_timeout': 10
+    }
 
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -319,11 +322,18 @@ def admin_leave():
 @app.route('/api/employees', methods=['GET'])
 def get_employees():
     """Get all employees"""
-    staff_members = Staff.query.filter_by(is_active=True).all()
-    return jsonify({
-        'success': True,
-        'employees': [s.to_dict() for s in staff_members]
-    })
+    try:
+        staff_members = Staff.query.filter_by(is_active=True).all()
+        return jsonify({
+            'success': True,
+            'employees': [s.to_dict() for s in staff_members]
+        })
+    except Exception as e:
+        print(f"❌ ERROR loading employees: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Database error: {str(e)}'
+        }), 500
 
 
 @app.route('/api/staff', methods=['GET'])
