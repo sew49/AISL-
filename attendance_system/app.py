@@ -48,6 +48,10 @@ else:
 
 db = SQLAlchemy(app)
 
+# Create tables when module is imported (for Gunicorn/Production)
+with app.app_context():
+    db.create_all()
+
 # Supabase config
 SUPABASE_URL = 'https://sfwhsgrphfrsckzqquxp.supabase.co'
 ADMIN_PASSWORD = 'RAV4Adventure2019'
