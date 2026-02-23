@@ -24,12 +24,23 @@ app.secret_key = os.getenv('SECRET_KEY', 'aero_instrument_secure_key_2026')
 # Use environment variable if set (Render), otherwise use SQLite for local
 DATABASE_URL = os.environ.get('DATABASE_URL', 'sqlite:///attendance.db')
 
-app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+# Fix for Supabase/Render: replace postgres:// with postgresql://
+if DATABASE_URL and DATABASE_URL.startswith('postgres://'):
+    DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
+
+# Configure engine options for Supabase SSL connection
+engine_options = {
     'pool_pre_ping': True,
     'pool_recycle': 300,
 }
+
+# Add SSL configuration for Supabase PostgreSQL
+if DATABASE_URL and 'postgresql' in DATABASE_URL:
+    engine_options['connect_args'] = {'sslmode': 'require'}
+
+app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = engine_options
 
 db = SQLAlchemy(app)
 
