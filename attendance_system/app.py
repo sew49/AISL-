@@ -1,32 +1,20 @@
-"""
-Attendance System - Complete Single File App
-- SQLAlchemy 2.0.20 with Flask-SQLAlchemy 3.0.5
-- 08:15 AM Rule (late arrivals in Bold Red)
-- 21-Day Leave Rule with Orange highlight for ≤3 days
-- Pre-populated 22 staff members
-
-IMPORTANT: Make sure psycopg2-binary is in your requirements.txt!
-    pip install psycopg2-binary
-    # OR add to requirements.txt: psycopg2-binary==2.9.9
-
-This is REQUIRED for Supabase PostgreSQL connection on Render.
-"""
 import os
-from datetime import datetime, date, time, timedelta
-
-from flask import Flask, render_template, request, jsonify, redirect, url_for, session
-from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import text
+from flask import Flask
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv() # This must come before using os.getenv
+
+app = Flask(__name__)
+app.secret_key = os.getenv('SECRET_KEY', 'aero_instrument_secure_key_2026')
+
+# Continue with other imports after app and secret_key are defined
+from datetime import datetime, date, time, timedelta
+from flask import render_template, request, jsonify, redirect, url_for, session
+from flask_sqlalchemy import SQLAlchemy
 
 # =====================================================
 # CONFIGURATION
 # =====================================================
-
-app = Flask(__name__)
-app.secret_key = os.getenv('SECRET_KEY', 'aero_instrument_secure_key_2026')
 
 # Database URL - Production (Render) or Local fallback
 DATABASE_URL = os.environ.get('DATABASE_URL', 'sqlite:///attendance.db')
