@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv() # This must come before using os.getenv
 
 app = Flask(__name__)
-app.secret_key = os.getenv('SECRET_KEY', 'aero_instrument_secure_key_2026')
+app.secret_key = os.getenv('SECRET_KEY')
 
 # Continue with other imports after app and secret_key are defined
 from datetime import datetime, date, time, timedelta
