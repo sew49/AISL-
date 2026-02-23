@@ -6,7 +6,7 @@ Attendance System - Complete Single File App
 - Pre-populated 22 staff members
 """
 import os
-from datetime import datetime, date, time
+from datetime import datetime, date, time, timedelta
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
@@ -53,12 +53,13 @@ class Staff(db.Model):
     department = db.Column(db.String(50))
     join_date = db.Column(db.Date, nullable=False)
     is_active = db.Column(db.Boolean, default=True)
-    leave_balance = db.Column(db.Integer, default=21)  # 21-day leave starting balance
+    leave_balance = db.Column(db.Integer, default=21)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     def to_dict(self):
         return {
             'id': self.id,
+            'emp_id': self.id,
             'employee_code': self.employee_code,
             'first_name': self.first_name,
             'last_name': self.last_name,
@@ -68,7 +69,8 @@ class Staff(db.Model):
             'department': self.department,
             'join_date': self.join_date.isoformat() if self.join_date else None,
             'is_active': self.is_active,
-            'leave_balance': self.leave_balance
+            'leave_balance': self.leave_balance,
+            'annual_leave_balance': self.leave_balance
         }
 
 
@@ -80,9 +82,9 @@ class Attendance(db.Model):
     work_date = db.Column(db.Date, nullable=False)
     clock_in = db.Column(db.Time, nullable=False)
     clock_out = db.Column(db.Time)
-    day_type = db.Column(db.String(20), default='Full Day')  # Full Day, Half Day, Saturday
-    status = db.Column(db.String(20), default='Present')  # Present, Late, Absent
-    is_late = db.Column(db.Boolean, default=False)  # True if clock in after 08:15 AM
+    day_type = db.Column(db.String(20), default='Full Day')
+    status = db.Column(db.String(20), default='Present')
+    is_late = db.Column(db.Boolean, default=False)
     notes = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
@@ -91,6 +93,7 @@ class Attendance(db.Model):
     def to_dict(self):
         return {
             'id': self.id,
+            'emp_id': self.staff_id,
             'staff_id': self.staff_id,
             'work_date': self.work_date.isoformat() if self.work_date else None,
             'clock_in': self.clock_in.strftime('%H:%M') if self.clock_in else None,
@@ -108,12 +111,12 @@ class LeaveRequest(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     staff_id = db.Column(db.Integer, db.ForeignKey('staff.id'), nullable=False)
-    leave_type = db.Column(db.String(20), nullable=False)  # Annual, Sick, Casual
+    leave_type = db.Column(db.String(20), nullable=False)
     start_date = db.Column(db.Date, nullable=False)
     end_date = db.Column(db.Date, nullable=False)
     total_days = db.Column(db.Integer, nullable=False)
     reason = db.Column(db.Text)
-    status = db.Column(db.String(20), default='Pending')  # Pending, Approved, Rejected
+    status = db.Column(db.String(20), default='Pending')
     approved_by = db.Column(db.Integer)
     approved_date = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -123,6 +126,8 @@ class LeaveRequest(db.Model):
     def to_dict(self):
         return {
             'id': self.id,
+            'request_id': self.id,
+            'emp_id': self.staff_id,
             'staff_id': self.staff_id,
             'staff_name': f"{self.staff.first_name} {self.staff.last_name}" if self.staff else None,
             'leave_type': self.leave_type,
@@ -145,7 +150,7 @@ def calculate_leave_days(start_date, end_date):
     total_days = 0
     current = start_date
     while current <= end_date:
-        if current.weekday() != 6:  # Not Sunday
+        if current.weekday() != 6:
             total_days += 1
         current = date.fromordinal(current.toordinal() + 1)
     return total_days
@@ -194,7 +199,6 @@ def index():
     staff_members = Staff.query.filter_by(is_active=True).all()
     today = date.today()
     
-    # Get today's attendance
     today_attendance = Attendance.query.filter_by(work_date=today).all()
     attendance_dict = {a.staff_id: a for a in today_attendance}
     
@@ -206,7 +210,7 @@ def index():
 
 @app.route('/debug')
 def debug_status():
-    """Debug/Status page - shows environment and connection info"""
+    """Debug/Status page"""
     db_type = "PostgreSQL (Supabase)" if "postgresql" in DATABASE_URL else "SQLite (Local)"
     return render_template('debug.html', 
                           database_url=DATABASE_URL[:50] + "..." if len(DATABASE_URL) > 50 else DATABASE_URL,
@@ -216,7 +220,7 @@ def debug_status():
 
 @app.route('/staff')
 def staff_portal():
-    """Staff portal - alternative route (redirects to home)"""
+    """Staff portal"""
     return redirect(url_for('index'))
 
 
@@ -228,7 +232,7 @@ def admin_login():
 
 @app.route('/admin')
 def admin_home():
-    """Admin home - redirect to dashboard or login"""
+    """Admin home"""
     if not session.get('admin_logged_in'):
         return redirect(url_for('admin_login'))
     return redirect(url_for('admin_dashboard'))
@@ -236,17 +240,13 @@ def admin_home():
 
 @app.route('/admin/dashboard')
 def admin_dashboard():
-    """Admin dashboard - view all attendance and staff"""
+    """Admin dashboard"""
     if not session.get('admin_logged_in'):
         return redirect(url_for('admin_login'))
     
     staff_members = Staff.query.filter_by(is_active=True).all()
     today = date.today()
-    
-    # Get today's attendance
     today_attendance = Attendance.query.filter_by(work_date=today).all()
-    
-    # Get all pending leave requests
     pending_leaves = LeaveRequest.query.filter_by(status='Pending').all()
     
     return render_template('admin/dashboard.html', 
@@ -273,13 +273,41 @@ def admin_logout():
     return redirect(url_for('admin_login'))
 
 
+@app.route('/admin-input')
+def admin_input():
+    """Admin input page"""
+    if not session.get('admin_logged_in'):
+        return redirect(url_for('admin_login'))
+    return render_template('admin_input.html')
+
+
+@app.route('/admin/leave')
+def admin_leave():
+    """Admin leave management"""
+    if not session.get('admin_logged_in'):
+        return redirect(url_for('admin_login'))
+    
+    try:
+        leave_requests = LeaveRequest.query.order_by(LeaveRequest.created_at.desc()).all()
+        return jsonify({
+            'success': True,
+            'leave_requests': [lr.to_dict() for lr in leave_requests]
+        })
+    except Exception as e:
+        print(f"❌ ERROR loading leave records: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Database connection failed: {str(e)}'
+        }), 500
+
+
 # =====================================================
 # API ROUTES
 # =====================================================
 
 @app.route('/api/employees', methods=['GET'])
 def get_employees():
-    """Get all employees - matches frontend expectation"""
+    """Get all employees"""
     staff_members = Staff.query.filter_by(is_active=True).all()
     return jsonify({
         'success': True,
@@ -297,21 +325,42 @@ def get_staff():
     })
 
 
+@app.route('/api/attendance', methods=['GET'])
+def get_all_attendance():
+    """Get all attendance records"""
+    start_date = request.args.get('start_date')
+    
+    try:
+        query = Attendance.query
+        if start_date:
+            query = query.filter(Attendance.work_date >= start_date)
+        
+        attendance = query.order_by(Attendance.work_date.desc()).all()
+        return jsonify({
+            'success': True,
+            'attendance': [a.to_dict() for a in attendance]
+        })
+    except Exception as e:
+        print(f"❌ ERROR loading attendance: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Database error: {str(e)}'
+        }), 500
+
+
 @app.route('/api/attendance/today', methods=['GET'])
 def get_today_attendance():
     """Get today's attendance for all staff"""
     today = date.today()
     attendance = Attendance.query.filter_by(work_date=today).all()
-    
     staff_members = Staff.query.filter_by(is_active=True).all()
-    staff_dict = {s.id: s for s in staff_members}
     
     result = []
     for staff in staff_members:
         att = next((a for a in attendance if a.staff_id == staff.id), None)
         
         if att:
-            status = 'Present'
+            status = 'Present' if not att.clock_out else 'Clocked Out'
             clock_in = att.clock_in.strftime('%H:%M') if att.clock_in else ''
             clock_out = att.clock_out.strftime('%H:%M') if att.clock_out else ''
             is_late = att.is_late
@@ -323,8 +372,9 @@ def get_today_attendance():
         
         result.append({
             'id': staff.id,
-            'name': f"{staff.first_name} {staff.last_name}",
-            'code': staff.employee_code,
+            'emp_id': staff.id,
+            'employee_name': f"{staff.first_name} {staff.last_name}",
+            'employee_code': staff.employee_code,
             'status': status,
             'clock_in': clock_in,
             'clock_out': clock_out,
@@ -335,16 +385,15 @@ def get_today_attendance():
     return jsonify({
         'success': True,
         'date': today.isoformat(),
-        'attendance': result
+        'employees': result
     })
 
 
 @app.route('/api/attendance', methods=['POST'])
 def create_attendance():
-    """Clock in/out - implements 08:16 AM Rule"""
+    """Clock in/out"""
     data = request.get_json()
     
-    # Support both emp_id (from frontend) and staff_id
     staff_id = data.get('staff_id') or data.get('emp_id')
     work_date = datetime.strptime(data.get('work_date'), '%Y-%m-%d').date()
     clock_in_str = data.get('clock_in')
@@ -353,31 +402,26 @@ def create_attendance():
     if not staff_id:
         return jsonify({'success': False, 'error': 'Employee ID is required'}), 400
     
-    # Parse clock in time
     clock_in = datetime.strptime(clock_in_str, '%H:%M').time() if clock_in_str else None
     
-    # Check if late (after 08:16 AM)
+    # Check if late (after 08:15 AM)
     is_late = False
-    late_threshold = time(8, 16)
+    late_threshold = time(8, 15)
     if clock_in and clock_in > late_threshold:
         is_late = True
     
-    # Determine day type
     is_saturday = work_date.weekday() == 5
     day_type = 'Saturday Half Day' if is_saturday else 'Full Day'
     
-    # Check if already clocked in today
     existing = Attendance.query.filter_by(staff_id=staff_id, work_date=work_date).first()
     
     if existing:
-        # Update clock out
         if clock_out_str:
             existing.clock_out = datetime.strptime(clock_out_str, '%H:%M').time()
         existing.status = 'Present'
         db.session.commit()
         return jsonify({'success': True, 'message': 'Clock out recorded', 'attendance': existing.to_dict()})
     
-    # Create new attendance record
     attendance = Attendance(
         staff_id=staff_id,
         work_date=work_date,
@@ -410,7 +454,6 @@ def leave_requests():
     
     data = request.get_json()
     
-    # Support both emp_id (from frontend) and staff_id
     staff_id = data.get('staff_id') or data.get('emp_id')
     if staff_id:
         staff_id = int(staff_id)
@@ -456,9 +499,9 @@ def leave_requests():
     })
 
 
-@app.route('/api/leave/approve/<int:request_id>', methods=['POST'])
+@app.route('/api/leave-requests/<int:request_id>/approve', methods=['POST'])
 def approve_leave(request_id):
-    """Approve leave - subtracts from balance"""
+    """Approve leave"""
     if not session.get('admin_logged_in'):
         return jsonify({'success': False, 'error': 'Unauthorized'}), 401
     
@@ -468,14 +511,13 @@ def approve_leave(request_id):
     
     staff = Staff.query.get(leave_request.staff_id)
     
-    # Update leave balance
     if leave_request.leave_type == 'Annual' and staff:
         staff.leave_balance -= leave_request.total_days
         if staff.leave_balance < 0:
             staff.leave_balance = 0
     
     leave_request.status = 'Approved'
-    leave_request.approved_by = 1  # Admin ID
+    leave_request.approved_by = 1
     leave_request.approved_date = datetime.utcnow()
     
     db.session.commit()
@@ -487,7 +529,7 @@ def approve_leave(request_id):
     })
 
 
-@app.route('/api/leave/reject/<int:request_id>', methods=['POST'])
+@app.route('/api/leave-requests/<int:request_id>/reject', methods=['POST'])
 def reject_leave(request_id):
     """Reject leave request"""
     if not session.get('admin_logged_in'):
@@ -518,8 +560,142 @@ def get_leave_balance(staff_id):
         'success': True,
         'staff_id': staff_id,
         'leave_balance': staff.leave_balance,
-        'is_low': staff.leave_balance <= 3  # Orange highlight flag
+        'is_low': staff.leave_balance <= 3
     })
+
+
+@app.route('/api/reports/fiscal-year-summary')
+def fiscal_year_summary():
+    """Get fiscal year summary"""
+    if not session.get('admin_logged_in'):
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+    
+    try:
+        employees = Staff.query.filter_by(is_active=True).all()
+        start_date = date(2025, 10, 1)
+        
+        summary = []
+        for emp in employees:
+            attendance_count = Attendance.query.filter(
+                Attendance.staff_id == emp.id,
+                Attendance.work_date >= start_date
+            ).count()
+            
+            annual_leave = LeaveRequest.query.filter(
+                LeaveRequest.staff_id == emp.id,
+                LeaveRequest.leave_type == 'Annual',
+                LeaveRequest.status == 'Approved',
+                LeaveRequest.start_date >= start_date
+            ).all()
+            annual_taken = sum(lr.total_days for lr in annual_leave)
+            
+            sick_leave = LeaveRequest.query.filter(
+                LeaveRequest.staff_id == emp.id,
+                LeaveRequest.leave_type == 'Sick',
+                LeaveRequest.status == 'Approved',
+                LeaveRequest.start_date >= start_date
+            ).all()
+            sick_taken = sum(lr.total_days for lr in sick_leave)
+            
+            remaining = 21 - annual_taken
+            
+            summary.append({
+                'employee_name': f"{emp.first_name} {emp.last_name}",
+                'days_present': attendance_count,
+                'annual_leave_taken': annual_taken,
+                'annual_leave_remaining': remaining,
+                'sick_days_taken': sick_taken,
+                'unpaid_absences': 0
+            })
+        
+        return jsonify({
+            'success': True,
+            'summary': summary
+        })
+    except Exception as e:
+        print(f"❌ ERROR loading fiscal year summary: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Database connection failed: {str(e)}'
+        }), 500
+
+
+@app.route('/api/reports/monthly-attendance-summary')
+def monthly_attendance_summary():
+    """Get monthly attendance summary"""
+    if not session.get('admin_logged_in'):
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+    
+    try:
+        year = request.args.get('year', type=int, default=2026)
+        month = request.args.get('month', type=int, default=1)
+        
+        start_date = date(year, month, 1)
+        if month == 12:
+            end_date = date(year + 1, 1, 1) - timedelta(days=1)
+        else:
+            end_date = date(year, month + 1, 1) - timedelta(days=1)
+        
+        target_days = 0
+        current = start_date
+        while current <= end_date:
+            if current.weekday() < 5:
+                target_days += 1
+            current += timedelta(days=1)
+        
+        employees = Staff.query.filter_by(is_active=True).all()
+        
+        summary = []
+        for emp in employees:
+            attendance_count = Attendance.query.filter(
+                Attendance.staff_id == emp.id,
+                Attendance.work_date >= start_date,
+                Attendance.work_date <= end_date
+            ).count()
+            
+            month_name = start_date.strftime('%B')
+            
+            summary.append({
+                'employee_name': f"{emp.first_name} {emp.last_name}",
+                'month': month_name,
+                'days_present': attendance_count,
+                'target_days': target_days
+            })
+        
+        return jsonify({
+            'success': True,
+            'summary': summary
+        })
+    except Exception as e:
+        print(f"❌ ERROR loading monthly summary: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Database connection failed: {str(e)}'
+        }), 500
+
+
+@app.route('/api/employees/reset-annual-leave', methods=['POST'])
+def reset_annual_leave():
+    """Reset all employees' annual leave to 21 days"""
+    if not session.get('admin_logged_in'):
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+    
+    try:
+        employees = Staff.query.filter_by(is_active=True).all()
+        for emp in employees:
+            emp.leave_balance = 21
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'All employees annual leave reset to 21 days'
+        })
+    except Exception as e:
+        print(f"❌ ERROR resetting annual leave: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Database error: {str(e)}'
+        }), 500
 
 
 # =====================================================
@@ -535,12 +711,9 @@ if __name__ == '__main__':
     print(f"URL: {DATABASE_URL[:50]}...")
     print(f"{'='*60}\n")
     
-    # Create tables
     with app.app_context():
         db.create_all()
         print("✅ Database tables created")
-        
-        # Seed staff
         seed_staff()
     
     print("🚀 Starting server...")
