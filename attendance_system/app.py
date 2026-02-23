@@ -273,7 +273,7 @@ def staff_portal():
     return redirect(url_for('index'))
 
 
-@app.route('/admin-login')
+@app.route('/admin-login', methods=['GET', 'POST'])
 def admin_login():
     """Admin login page"""
     return render_template('admin/admin_login.html')
