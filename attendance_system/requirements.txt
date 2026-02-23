@@ -1,4 +1,4 @@
-flask==3.0.0
+flask==2.3.3
 flask-sqlalchemy==3.0.5
 sqlalchemy==2.0.20
 python-dotenv==1.0.0
