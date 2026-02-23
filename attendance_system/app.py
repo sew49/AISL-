@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv() # This must come before using os.getenv
 
 app = Flask(__name__)
-app.secret_key = os.getenv('SECRET_KEY')
+app.secret_key = os.getenv('SECRET_KEY') or 'dev_fallback_key_change_in_production'
 
 # Continue with other imports after app and secret_key are defined
 from datetime import datetime, date, time, timedelta
