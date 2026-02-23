@@ -402,21 +402,28 @@ def create_attendance():
 def leave_requests():
     """Get or create leave requests"""
     if request.method == 'GET':
-        leave_requests = LeaveRequest.query.order_by(LeaveRequest.created_at.desc()).all()
+        leave_requests_list = LeaveRequest.query.order_by(LeaveRequest.created_at.desc()).all()
         return jsonify({
             'success': True,
-            'leave_requests': [lr.to_dict() for lr in leave_requests]
+            'leave_requests': [lr.to_dict() for lr in leave_requests_list]
         })
     
     data = request.get_json()
     
-    staff_id = data.get('staff_id')
+    # Support both emp_id (from frontend) and staff_id
+    staff_id = data.get('staff_id') or data.get('emp_id')
+    if staff_id:
+        staff_id = int(staff_id)
+    
     leave_type = data.get('leave_type')
     start_date = datetime.strptime(data.get('start_date'), '%Y-%m-%d').date()
     end_date = datetime.strptime(data.get('end_date'), '%Y-%m-%d').date()
     reason = data.get('reason', '')
     
-    staff = Staff.query.get(staff_id)
+    if not staff_id:
+        return jsonify({'success': False, 'error': 'Employee ID is required'}), 400
+    
+    staff = db.session.get(Staff, staff_id)
     if not staff:
         return jsonify({'success': False, 'error': 'Staff not found'}), 404
     
