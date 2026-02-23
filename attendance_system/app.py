@@ -1,84 +1,188 @@
 """
-Hybrid Flask App with Supabase Integration
-- Admin Mode (Render): /admin with password protection
-- Staff Mode (Local): /staff without password
+Attendance System - Complete Single File App
+- SQLAlchemy with Supabase PostgreSQL
+- 08:15 AM Rule (late arrivals in Bold Red)
+- 21-Day Leave Rule with Orange highlight for ≤3 days
+- Pre-populated 22 staff members
 """
 import os
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify
+from datetime import datetime, date, time
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session
+from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 
-# Load environment variables
 load_dotenv()
 
 # =====================================================
 # CONFIGURATION
 # =====================================================
 
-# Supabase Configuration
-SUPABASE_URL = os.getenv('SUPABASE_URL', 'https://sfwhsgrphfrsckzqquxp.supabase.co')
-SUPABASE_KEY = os.getenv('SUPABASE_KEY', 'MRaSgUIhVBNJKyBMAnYnJw_HvGuywcn')
-
-# Admin password from environment
-ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', 'RAV4Adventure2019')
-
-# Environment detection
-IS_RENDER = os.environ.get('RENDER') is not None
-
-# Flask app setup
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'aero_instrument_secure_key_2026')
 
+# Database URL - Production (Render) or Local fallback
+# Use environment variable if set (Render), otherwise use SQLite for local
+DATABASE_URL = os.environ.get('DATABASE_URL', 'sqlite:///attendance.db')
+
+app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_pre_ping': True,
+    'pool_recycle': 300,
+}
+
+db = SQLAlchemy(app)
+
+# Supabase config
+SUPABASE_URL = 'https://sfwhsgrphfrsckzqquxp.supabase.co'
+ADMIN_PASSWORD = 'RAV4Adventure2019'
+
 # =====================================================
-# SUPABASE HELPER FUNCTIONS
+# DATABASE MODELS
 # =====================================================
 
-def fetch_logs_from_supabase():
-    """Fetch data from Supabase 'logs' table"""
-    try:
-        import requests
-        
-        headers = {
-            'apikey': SUPABASE_KEY,
-            'Authorization': f'Bearer {SUPABASE_KEY}'
+class Staff(db.Model):
+    __tablename__ = 'staff'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    employee_code = db.Column(db.String(10), unique=True, nullable=False)
+    first_name = db.Column(db.String(50), nullable=False)
+    last_name = db.Column(db.String(50), nullable=False)
+    email = db.Column(db.String(100), unique=True)
+    phone = db.Column(db.String(20))
+    department = db.Column(db.String(50))
+    join_date = db.Column(db.Date, nullable=False)
+    is_active = db.Column(db.Boolean, default=True)
+    leave_balance = db.Column(db.Integer, default=21)  # 21-day leave starting balance
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'employee_code': self.employee_code,
+            'first_name': self.first_name,
+            'last_name': self.last_name,
+            'full_name': f"{self.first_name} {self.last_name}",
+            'email': self.email,
+            'phone': self.phone,
+            'department': self.department,
+            'join_date': self.join_date.isoformat() if self.join_date else None,
+            'is_active': self.is_active,
+            'leave_balance': self.leave_balance
         }
-        
-        response = requests.get(
-            f'{SUPABASE_URL}/rest/v1/logs',
-            headers=headers,
-            params={'order': 'created_at.desc', 'limit': 100}
-        )
-        
-        if response.status_code == 200:
-            return response.json()
-        else:
-            print(f"Error fetching logs: {response.status_code}")
-            return []
-    except Exception as e:
-        print(f"Exception fetching logs: {e}")
-        return []
 
-def create_log_in_supabase(log_data):
-    """Create a log entry in Supabase"""
-    try:
-        import requests
-        
-        headers = {
-            'apikey': SUPABASE_KEY,
-            'Authorization': f'Bearer {SUPABASE_KEY}',
-            'Content-Type': 'application/json',
-            'Prefer': 'return=minimal'
+
+class Attendance(db.Model):
+    __tablename__ = 'attendance'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    staff_id = db.Column(db.Integer, db.ForeignKey('staff.id'), nullable=False)
+    work_date = db.Column(db.Date, nullable=False)
+    clock_in = db.Column(db.Time, nullable=False)
+    clock_out = db.Column(db.Time)
+    day_type = db.Column(db.String(20), default='Full Day')  # Full Day, Half Day, Saturday
+    status = db.Column(db.String(20), default='Present')  # Present, Late, Absent
+    is_late = db.Column(db.Boolean, default=False)  # True if clock in after 08:15 AM
+    notes = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    staff = db.relationship('Staff', backref='attendance_records')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'staff_id': self.staff_id,
+            'work_date': self.work_date.isoformat() if self.work_date else None,
+            'clock_in': self.clock_in.strftime('%H:%M') if self.clock_in else None,
+            'clock_out': self.clock_out.strftime('%H:%M') if self.clock_out else None,
+            'day_type': self.day_type,
+            'status': self.status,
+            'is_late': self.is_late,
+            'notes': self.notes,
+            'staff_name': f"{self.staff.first_name} {self.staff.last_name}" if self.staff else None
         }
+
+
+class LeaveRequest(db.Model):
+    __tablename__ = 'leave_requests'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    staff_id = db.Column(db.Integer, db.ForeignKey('staff.id'), nullable=False)
+    leave_type = db.Column(db.String(20), nullable=False)  # Annual, Sick, Casual
+    start_date = db.Column(db.Date, nullable=False)
+    end_date = db.Column(db.Date, nullable=False)
+    total_days = db.Column(db.Integer, nullable=False)
+    reason = db.Column(db.Text)
+    status = db.Column(db.String(20), default='Pending')  # Pending, Approved, Rejected
+    approved_by = db.Column(db.Integer)
+    approved_date = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    staff = db.relationship('Staff', backref='leave_requests')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'staff_id': self.staff_id,
+            'staff_name': f"{self.staff.first_name} {self.staff.last_name}" if self.staff else None,
+            'leave_type': self.leave_type,
+            'start_date': self.start_date.isoformat() if self.start_date else None,
+            'end_date': self.end_date.isoformat() if self.end_date else None,
+            'total_days': self.total_days,
+            'reason': self.reason,
+            'status': self.status,
+            'approved_by': self.approved_by,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+
+# =====================================================
+# HELPER FUNCTIONS
+# =====================================================
+
+def calculate_leave_days(start_date, end_date):
+    """Calculate leave days excluding Sundays"""
+    total_days = 0
+    current = start_date
+    while current <= end_date:
+        if current.weekday() != 6:  # Not Sunday
+            total_days += 1
+        current = date.fromordinal(current.toordinal() + 1)
+    return total_days
+
+
+def seed_staff():
+    """Pre-populate 22 staff members"""
+    if Staff.query.count() > 0:
+        return
+    
+    staff_members = [
+        "Peter Nyawade", "Tonny Odongo", "Eric Kamau", "Kelvin Omondi",
+        "Ottawa Kinsvoscko", "Riziki Merriment", "Margaret Muthoni",
+        "Oscar Akala", "Craig Mwendwa", "Mark Okere", "Joash Amutavi",
+        "Julius Singila", "Wesonga Wilfred", "Innocent Mogaka",
+        "Nelson Kasiki", "Fredrick Owino", "Bentah Akinyi", "Mahmood Mir",
+        "Sharon Akinyi", "Kipsang Kipsetim", "Dennis Kipkemoi", "David Makau"
+    ]
+    
+    for i, name in enumerate(staff_members, 1):
+        parts = name.strip().split()
+        first = parts[0]
+        last = ' '.join(parts[1:]) if len(parts) > 1 else ''
         
-        response = requests.post(
-            f'{SUPABASE_URL}/rest/v1/logs',
-            headers=headers,
-            json=log_data
+        staff = Staff(
+            employee_code=f"EMP{str(i).zfill(3)}",
+            first_name=first,
+            last_name=last,
+            join_date=date.today(),
+            department='Operations',
+            leave_balance=21
         )
-        
-        return response.status_code in [200, 201]
-    except Exception as e:
-        print(f"Exception creating log: {e}")
-        return False
+        db.session.add(staff)
+    
+    db.session.commit()
+    print(f"✅ Seeded {len(staff_members)} staff members")
+
 
 # =====================================================
 # ROUTES
@@ -86,50 +190,81 @@ def create_log_in_supabase(log_data):
 
 @app.route('/')
 def index():
-    """Home page - redirect based on environment"""
-    if IS_RENDER:
-        return redirect(url_for('admin_login'))
-    else:
-        return redirect(url_for('staff_portal'))
+    """Home page - Staff Clock In/Out and Leave Request"""
+    staff_members = Staff.query.filter_by(is_active=True).all()
+    today = date.today()
+    
+    # Get today's attendance
+    today_attendance = Attendance.query.filter_by(work_date=today).all()
+    attendance_dict = {a.staff_id: a for a in today_attendance}
+    
+    return render_template('staff/index.html', 
+                          staff=staff_members, 
+                          today=today,
+                          attendance=attendance_dict)
 
-# ====================
-# ADMIN ROUTES
-# ====================
+
+@app.route('/debug')
+def debug_status():
+    """Debug/Status page - shows environment and connection info"""
+    db_type = "PostgreSQL (Supabase)" if "postgresql" in DATABASE_URL else "SQLite (Local)"
+    return render_template('debug.html', 
+                          database_url=DATABASE_URL[:50] + "..." if len(DATABASE_URL) > 50 else DATABASE_URL,
+                          db_type=db_type,
+                          supabase_url=SUPABASE_URL)
+
+
+@app.route('/staff')
+def staff_portal():
+    """Staff portal - alternative route (redirects to home)"""
+    return redirect(url_for('index'))
+
+
+@app.route('/admin-login')
+def admin_login():
+    """Admin login page"""
+    return render_template('admin/admin_login.html')
+
 
 @app.route('/admin')
-def admin_login():
-    """Admin login page - only active on Render"""
-    if not IS_RENDER:
-        return redirect(url_for('staff_portal'))
-    return render_template('admin/dashboard.html', logged_in=False, logs=[])
+def admin_home():
+    """Admin home - redirect to dashboard or login"""
+    if not session.get('admin_logged_in'):
+        return redirect(url_for('admin_login'))
+    return redirect(url_for('admin_dashboard'))
+
 
 @app.route('/admin/dashboard')
 def admin_dashboard():
-    """Admin dashboard - requires password"""
-    if not IS_RENDER:
-        return redirect(url_for('staff_portal'))
-    
+    """Admin dashboard - view all attendance and staff"""
     if not session.get('admin_logged_in'):
         return redirect(url_for('admin_login'))
     
-    # Fetch logs from Supabase
-    logs = fetch_logs_from_supabase()
+    staff_members = Staff.query.filter_by(is_active=True).all()
+    today = date.today()
     
-    return render_template('admin/dashboard.html', logged_in=True, logs=logs)
+    # Get today's attendance
+    today_attendance = Attendance.query.filter_by(work_date=today).all()
+    
+    # Get all pending leave requests
+    pending_leaves = LeaveRequest.query.filter_by(status='Pending').all()
+    
+    return render_template('admin/dashboard.html', 
+                         staff=staff_members,
+                         attendance=today_attendance,
+                         pending_leaves=pending_leaves,
+                         today=today)
+
 
 @app.route('/admin/login', methods=['POST'])
 def admin_login_post():
     """Process admin login"""
-    if not IS_RENDER:
-        return redirect(url_for('staff_portal'))
-    
     password = request.form.get('password', '')
-    
     if password == ADMIN_PASSWORD:
         session['admin_logged_in'] = True
         return redirect(url_for('admin_dashboard'))
-    else:
-        return render_template('admin/dashboard.html', logged_in=False, error='Invalid password', logs=[])
+    return render_template('admin/admin_login.html', error='Invalid password')
+
 
 @app.route('/admin/logout')
 def admin_logout():
@@ -137,35 +272,269 @@ def admin_logout():
     session.pop('admin_logged_in', None)
     return redirect(url_for('admin_login'))
 
-# ====================
-# STAFF ROUTES
-# ====================
 
-@app.route('/staff')
-def staff_portal():
-    """Staff portal - only active locally"""
-    if IS_RENDER:
-        return redirect(url_for('admin_login'))
-    return render_template('staff/portal.html')
+# =====================================================
+# API ROUTES
+# =====================================================
+
+@app.route('/api/employees', methods=['GET'])
+def get_employees():
+    """Get all employees - matches frontend expectation"""
+    staff_members = Staff.query.filter_by(is_active=True).all()
+    return jsonify({
+        'success': True,
+        'employees': [s.to_dict() for s in staff_members]
+    })
+
+
+@app.route('/api/staff', methods=['GET'])
+def get_staff():
+    """Get all staff"""
+    staff_members = Staff.query.filter_by(is_active=True).all()
+    return jsonify({
+        'success': True,
+        'staff': [s.to_dict() for s in staff_members]
+    })
+
+
+@app.route('/api/attendance/today', methods=['GET'])
+def get_today_attendance():
+    """Get today's attendance for all staff"""
+    today = date.today()
+    attendance = Attendance.query.filter_by(work_date=today).all()
+    
+    staff_members = Staff.query.filter_by(is_active=True).all()
+    staff_dict = {s.id: s for s in staff_members}
+    
+    result = []
+    for staff in staff_members:
+        att = next((a for a in attendance if a.staff_id == staff.id), None)
+        
+        if att:
+            status = 'Present'
+            clock_in = att.clock_in.strftime('%H:%M') if att.clock_in else ''
+            clock_out = att.clock_out.strftime('%H:%M') if att.clock_out else ''
+            is_late = att.is_late
+        else:
+            status = 'Not Clocked In'
+            clock_in = ''
+            clock_out = ''
+            is_late = False
+        
+        result.append({
+            'id': staff.id,
+            'name': f"{staff.first_name} {staff.last_name}",
+            'code': staff.employee_code,
+            'status': status,
+            'clock_in': clock_in,
+            'clock_out': clock_out,
+            'is_late': is_late,
+            'leave_balance': staff.leave_balance
+        })
+    
+    return jsonify({
+        'success': True,
+        'date': today.isoformat(),
+        'attendance': result
+    })
+
+
+@app.route('/api/attendance', methods=['POST'])
+def create_attendance():
+    """Clock in/out - implements 08:16 AM Rule"""
+    data = request.get_json()
+    
+    # Support both emp_id (from frontend) and staff_id
+    staff_id = data.get('staff_id') or data.get('emp_id')
+    work_date = datetime.strptime(data.get('work_date'), '%Y-%m-%d').date()
+    clock_in_str = data.get('clock_in')
+    clock_out_str = data.get('clock_out')
+    
+    if not staff_id:
+        return jsonify({'success': False, 'error': 'Employee ID is required'}), 400
+    
+    # Parse clock in time
+    clock_in = datetime.strptime(clock_in_str, '%H:%M').time() if clock_in_str else None
+    
+    # Check if late (after 08:16 AM)
+    is_late = False
+    late_threshold = time(8, 16)
+    if clock_in and clock_in > late_threshold:
+        is_late = True
+    
+    # Determine day type
+    is_saturday = work_date.weekday() == 5
+    day_type = 'Saturday Half Day' if is_saturday else 'Full Day'
+    
+    # Check if already clocked in today
+    existing = Attendance.query.filter_by(staff_id=staff_id, work_date=work_date).first()
+    
+    if existing:
+        # Update clock out
+        if clock_out_str:
+            existing.clock_out = datetime.strptime(clock_out_str, '%H:%M').time()
+        existing.status = 'Present'
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Clock out recorded', 'attendance': existing.to_dict()})
+    
+    # Create new attendance record
+    attendance = Attendance(
+        staff_id=staff_id,
+        work_date=work_date,
+        clock_in=clock_in,
+        day_type=day_type,
+        is_late=is_late,
+        status='Present' if not is_late else 'Late'
+    )
+    
+    db.session.add(attendance)
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'message': 'Clock in recorded' + (' (LATE - After 08:15 AM)' if is_late else ''),
+        'attendance': attendance.to_dict(),
+        'is_late': is_late
+    })
+
+
+@app.route('/api/leave-requests', methods=['GET', 'POST'])
+def leave_requests():
+    """Get or create leave requests"""
+    if request.method == 'GET':
+        leave_requests = LeaveRequest.query.order_by(LeaveRequest.created_at.desc()).all()
+        return jsonify({
+            'success': True,
+            'leave_requests': [lr.to_dict() for lr in leave_requests]
+        })
+    
+    data = request.get_json()
+    
+    staff_id = data.get('staff_id')
+    leave_type = data.get('leave_type')
+    start_date = datetime.strptime(data.get('start_date'), '%Y-%m-%d').date()
+    end_date = datetime.strptime(data.get('end_date'), '%Y-%m-%d').date()
+    reason = data.get('reason', '')
+    
+    staff = Staff.query.get(staff_id)
+    if not staff:
+        return jsonify({'success': False, 'error': 'Staff not found'}), 404
+    
+    total_days = calculate_leave_days(start_date, end_date)
+    
+    if leave_type == 'Annual':
+        if staff.leave_balance < total_days:
+            return jsonify({
+                'success': False, 
+                'error': f'Insufficient leave balance. Available: {staff.leave_balance} days'
+            }), 400
+    
+    leave_request = LeaveRequest(
+        staff_id=staff_id,
+        leave_type=leave_type,
+        start_date=start_date,
+        end_date=end_date,
+        total_days=total_days,
+        reason=reason,
+        status='Pending'
+    )
+    
+    db.session.add(leave_request)
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'message': 'Leave request submitted',
+        'leave_request': leave_request.to_dict()
+    })
+
+
+@app.route('/api/leave/approve/<int:request_id>', methods=['POST'])
+def approve_leave(request_id):
+    """Approve leave - subtracts from balance"""
+    if not session.get('admin_logged_in'):
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+    
+    leave_request = LeaveRequest.query.get(request_id)
+    if not leave_request:
+        return jsonify({'success': False, 'error': 'Request not found'}), 404
+    
+    staff = Staff.query.get(leave_request.staff_id)
+    
+    # Update leave balance
+    if leave_request.leave_type == 'Annual' and staff:
+        staff.leave_balance -= leave_request.total_days
+        if staff.leave_balance < 0:
+            staff.leave_balance = 0
+    
+    leave_request.status = 'Approved'
+    leave_request.approved_by = 1  # Admin ID
+    leave_request.approved_date = datetime.utcnow()
+    
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'message': 'Leave approved',
+        'leave_request': leave_request.to_dict()
+    })
+
+
+@app.route('/api/leave/reject/<int:request_id>', methods=['POST'])
+def reject_leave(request_id):
+    """Reject leave request"""
+    if not session.get('admin_logged_in'):
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+    
+    leave_request = LeaveRequest.query.get(request_id)
+    if not leave_request:
+        return jsonify({'success': False, 'error': 'Request not found'}), 404
+    
+    leave_request.status = 'Rejected'
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'message': 'Leave rejected',
+        'leave_request': leave_request.to_dict()
+    })
+
+
+@app.route('/api/leave/balance/<int:staff_id>', methods=['GET'])
+def get_leave_balance(staff_id):
+    """Get staff leave balance"""
+    staff = Staff.query.get(staff_id)
+    if not staff:
+        return jsonify({'success': False, 'error': 'Staff not found'}), 404
+    
+    return jsonify({
+        'success': True,
+        'staff_id': staff_id,
+        'leave_balance': staff.leave_balance,
+        'is_low': staff.leave_balance <= 3  # Orange highlight flag
+    })
+
 
 # =====================================================
 # MAIN
 # =====================================================
 
 if __name__ == '__main__':
+    db_type = "PostgreSQL (Supabase)" if "postgresql" in DATABASE_URL else "SQLite (Local)"
     print(f"\n{'='*60}")
-    print(f"HYBRID FLASK APP STARTUP")
+    print("ATTENDANCE SYSTEM STARTUP")
     print(f"{'='*60}")
-    print(f"Environment: {'Render (Production)' if IS_RENDER else 'Local (Development)'}")
-    print(f"Supabase URL: {SUPABASE_URL}")
-    print(f"Admin Password: {'***' if ADMIN_PASSWORD else 'Not set'}")
+    print(f"Database: {db_type}")
+    print(f"URL: {DATABASE_URL[:50]}...")
     print(f"{'='*60}\n")
     
-    if IS_RENDER:
-        print(">>> Running in ADMIN mode (Render)")
-        print(">>> Access: /admin")
-    else:
-        print(">>> Running in STAFF mode (Local)")
-        print(">>> Access: /staff")
+    # Create tables
+    with app.app_context():
+        db.create_all()
+        print("✅ Database tables created")
+        
+        # Seed staff
+        seed_staff()
     
+    print("🚀 Starting server...")
     app.run(debug=True, host='0.0.0.0', port=5000)

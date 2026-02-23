@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug - Attendance System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <header class="gradient-bg text-white py-4 px-4">
+        <div class="max-w-4xl mx-auto">
+            <h1 class="text-xl font-bold">Debug / Status Information</h1>
+            <p class="text-blue-200 text-sm">Attendance Management System</p>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto p-4">
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <h2 class="text-lg font-semibold text-gray-800 mb-4">System Status</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <div class="text-sm text-gray-500">Database Type</div>
+                    <div class="text-lg font-semibold text-gray-800">{{ db_type }}</div>
+                </div>
+                
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <div class="text-sm text-gray-500">Supabase URL</div>
+                    <div class="text-lg font-semibold text-gray-800 text-sm break-all">{{ supabase_url }}</div>
+                </div>
+                
+                <div class="bg-gray-50 p-4 rounded-lg md:col-span-2">
+                    <div class="text-sm text-gray-500">Database Connection String</div>
+                    <div class="text-lg font-semibold text-gray-800 text-sm break-all">{{ database_url }}</div>
+                </div>
+            </div>
+            
+            <div class="mt-6 p-4 bg-green-100 border-l-4 border-green-500">
+                <p class="text-green-800 font-medium">✅ System is running</p>
+                <p class="text-green-700 text-sm">The attendance system is operational.</p>
+            </div>
+            
+            <div class="mt-4">
+                <a href="/" class="inline-block px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
+                    ← Back to Home
+                </a>
+            </div>
+        </div>
+    </main>
+</body>
+</html>
