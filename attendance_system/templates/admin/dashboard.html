@@ -422,5 +422,10 @@
     
     // Run on page load
     updateGreeting();
+    
+    // Auto-refresh every 60 seconds to see new clock-ins in real-time
+    setInterval(function() {
+        location.reload();
+    }, 60000);
 </script>
 {% endblock %}
