@@ -284,16 +284,16 @@
                 emp.employee_code.toLowerCase().includes(filter.toLowerCase())
             );
             
-            let optionsHTML = `<option value="">-- Select Employee --</option>`;
+let optionsHTML = `<option value="">-- Select Employee --</option>`;
             filtered.forEach(emp => {
                 const fullName = `${emp.first_name} ${emp.last_name}`;
-                optionsHTML += `<option value="${emp.emp_id}">${fullName} (${emp.employee_code})</option>`;
+                optionsHTML += `<option value="${emp.id}">${fullName} (${emp.employee_code})</option>`;
             });
             
             employeeSelect.innerHTML = optionsHTML;
             
             let dropdownHTML = filtered.map(emp => 
-                `<div class="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-0" data-id="${emp.emp_id}" data-name="${emp.first_name} ${emp.last_name}">
+                `<div class="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-0" data-id="${emp.id}" data-name="${emp.first_name} ${emp.last_name}">
                     <div class="font-medium">${emp.first_name} ${emp.last_name}</div>
                     <div class="text-xs text-gray-500">${emp.employee_code}</div>
                 </div>`
@@ -333,10 +333,10 @@
             }
         });
 
-        employeeSelect.addEventListener('change', (e) => {
+employeeSelect.addEventListener('change', (e) => {
             selectedEmployeeId = e.target.value;
             if (selectedEmployeeId) {
-                const emp = employees.find(em => em.emp_id == selectedEmployeeId);
+                const emp = employees.find(em => em.id == selectedEmployeeId);
                 if (emp) {
                     employeeSearch.value = `${emp.first_name} ${emp.last_name}`;
                 }
