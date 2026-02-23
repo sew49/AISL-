@@ -14,11 +14,6 @@ This is REQUIRED for Supabase PostgreSQL connection on Render.
 import os
 from datetime import datetime, date, time, timedelta
 
-# Import SQLAlchemy components for direct engine creation
-from sqlalchemy import create_engine
-from sqlalchemy.orm import scoped_session, sessionmaker
-from sqlalchemy.pool import QueuePool
-
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
@@ -43,39 +38,27 @@ if DATABASE_URL and DATABASE_URL.startswith('postgres://'):
 print(f"📊 Database URL: {DATABASE_URL[:50]}...")
 
 # =====================================================
-# ENGINE FIX: Create engine with proper SSL settings for Supabase
+# ENGINE FIX: Configure SSL for Supabase PostgreSQL
 # =====================================================
 if DATABASE_URL and 'postgresql' in DATABASE_URL:
-    # Use create_engine with proper SSL configuration for Supabase on Render
-    engine = create_engine(
-        DATABASE_URL,
-        poolclass=QueuePool,
-        pool_pre_ping=True,
-        pool_recycle=300,
-        connect_args={
-            'sslmode': 'require',
-            'connect_timeout': 10
-        }
-    )
-    
-    # Create scoped session
-    db_session = scoped_session(sessionmaker(bind=engine))
-    
-    # Configure Flask-SQLAlchemy to use our custom engine
+    # Use Flask-SQLAlchemy's engine_options for SSL
     app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-        'engine': engine,
-        'session': db_session
+        'pool_pre_ping': True,
+        'pool_recycle': 300,
+        'connect_args': {
+            'sslmode': 'require',
+            'connect_timeout': 10
+        }
     }
-    
-    db = SQLAlchemy(app)
-    db.session = db_session
+    print("🔒 SSL mode enabled for PostgreSQL")
 else:
     # SQLite configuration (local development)
     app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    db = SQLAlchemy(app)
+
+db = SQLAlchemy(app)
 
 # Supabase config
 SUPABASE_URL = 'https://sfwhsgrphfrsckzqquxp.supabase.co'
@@ -377,7 +360,7 @@ def admin_leave():
 
 
 # =====================================================
-# API ROUTES
+# API ROUTES - WITH ERROR HANDLING
 # =====================================================
 
 @app.route('/api/employees', methods=['GET'])
@@ -395,7 +378,7 @@ def get_employees():
         for staff in staff_members:
             staff_dict = staff.to_dict()
             
-            # Check if late today
+            # Check if late today (after 08:15 AM)
             att = attendance_dict.get(staff.id)
             if att and att.clock_in:
                 staff_dict['is_late_today'] = is_late_arrival(att.clock_in)
@@ -435,7 +418,7 @@ def get_staff():
         for staff in staff_members:
             staff_dict = staff.to_dict()
             
-            # Check if late today
+            # Check if late today (after 08:15 AM)
             att = attendance_dict.get(staff.id)
             if att and att.clock_in:
                 staff_dict['is_late_today'] = is_late_arrival(att.clock_in)
@@ -458,7 +441,7 @@ def get_staff():
 
 @app.route('/api/attendance', methods=['GET'])
 def get_all_attendance():
-    """Get all attendance records"""
+    """Get all attendance records - with late flagging"""
     start_date = request.args.get('start_date')
     
     try:
@@ -468,7 +451,7 @@ def get_all_attendance():
         
         attendance = query.order_by(Attendance.work_date.desc()).all()
         
-        # Add late flag to each record
+        # Add late flag to each record (08:15 AM rule)
         result = []
         for att in attendance:
             att_dict = att.to_dict()
