@@ -240,7 +240,7 @@ def seed_staff():
 def index():
     """Home page - Staff Clock In/Out and Leave Request"""
     try:
-        staff_members = Staff.query.filter_by(is_active=True).all()
+        staff_members = Staff.query.filter_by(is_active=True).order_by(Staff.employee_code.asc()).all()
         today = date.today()
         
         today_attendance = Attendance.query.filter_by(work_date=today).all()
@@ -302,7 +302,7 @@ def admin_dashboard():
         return redirect(url_for('admin_login'))
     
     try:
-        staff_members = Staff.query.filter_by(is_active=True).all()
+        staff_members = Staff.query.filter_by(is_active=True).order_by(Staff.employee_code.asc()).all()
         today = date.today()
         today_attendance = Attendance.query.filter_by(work_date=today).all()
         
@@ -445,7 +445,7 @@ def admin_leave():
 def get_employees():
     """Get all employees - with 08:15 AM late flagging"""
     try:
-        staff_members = Staff.query.filter_by(is_active=True).all()
+        staff_members = Staff.query.filter_by(is_active=True).order_by(Staff.employee_code.asc()).all()
         
         # Check today's attendance for late arrivals
         today = date.today()
@@ -485,7 +485,7 @@ def get_employees():
 def get_staff():
     """Get all staff - with 08:15 AM late flagging"""
     try:
-        staff_members = Staff.query.filter_by(is_active=True).all()
+        staff_members = Staff.query.filter_by(is_active=True).order_by(Staff.employee_code.asc()).all()
         
         # Check today's attendance for late arrivals
         today = date.today()
@@ -554,7 +554,7 @@ def get_today_attendance():
     try:
         today = date.today()
         attendance = Attendance.query.filter_by(work_date=today).all()
-        staff_members = Staff.query.filter_by(is_active=True).all()
+        staff_members = Staff.query.filter_by(is_active=True).order_by(Staff.employee_code.asc()).all()
         
         result = []
         for staff in staff_members:
@@ -856,7 +856,7 @@ def fiscal_year_summary():
         return jsonify({'success': False, 'error': 'Unauthorized'}), 401
     
     try:
-        employees = Staff.query.filter_by(is_active=True).all()
+        employees = Staff.query.filter_by(is_active=True).order_by(Staff.employee_code.asc()).all()
         start_date = date(2025, 10, 1)
         
         summary = []
@@ -928,7 +928,7 @@ def monthly_attendance_summary():
                 target_days += 1
             current += timedelta(days=1)
         
-        employees = Staff.query.filter_by(is_active=True).all()
+        employees = Staff.query.filter_by(is_active=True).order_by(Staff.employee_code.asc()).all()
         
         summary = []
         for emp in employees:
@@ -966,7 +966,7 @@ def reset_annual_leave():
         return jsonify({'success': False, 'error': 'Unauthorized'}), 401
     
     try:
-        employees = Staff.query.filter_by(is_active=True).all()
+        employees = Staff.query.filter_by(is_active=True).order_by(Staff.employee_code.asc()).all()
         for emp in employees:
             emp.leave_balance = 21
         db.session.commit()
