@@ -367,6 +367,20 @@ def admin_dashboard():
         # Get all approved leaves for "On Leave" status in attendance
         all_approved_leaves = LeaveRequest.query.filter_by(status='Approved').all()
         
+        # Get employees who are on approved leave TODAY - create a set of staff_ids for fast lookup
+        today_leaves = LeaveRequest.query.filter(
+            LeaveRequest.status == 'Approved',
+            LeaveRequest.start_date <= today,
+            LeaveRequest.end_date >= today
+        ).all()
+        
+        # Create a set of staff IDs who are on leave today for O(1) lookup
+        # Convert to int to ensure proper comparison in Jinja2 templates
+        staff_ids_on_leave_today = [leave.staff_id for leave in today_leaves]
+        
+        print(f"📅 Today: {today}")
+        print(f"👥 Employees on leave today: {staff_ids_on_leave_today}")
+        
         # Get upcoming approved leaves (future dates) for the schedule table
         upcoming_leaves = LeaveRequest.query.filter(
             LeaveRequest.status == 'Approved',
@@ -383,6 +397,7 @@ def admin_dashboard():
                              selected_month=selected_month,
                              approved_leaves=approved_leaves,
                              all_approved_leaves=all_approved_leaves,
+                             staff_ids_on_leave_today=staff_ids_on_leave_today,
                              upcoming_leaves=upcoming_leaves)
     except Exception as e:
         print(f"❌ ERROR in admin_dashboard: {str(e)}")

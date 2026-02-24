@@ -8,6 +8,54 @@ from functools import wraps
 import time
 
 # =====================================================
+# FISCAL YEAR UTILITY
+# =====================================================
+
+def calculate_fiscal_year(input_date):
+    """Calculate fiscal year based on input date. Fiscal year starts October 1st."""
+    if input_date.month >= 10:
+        return f"{input_date.year}/{input_date.year + 1}"
+    else:
+        return f"{input_date.year - 1}/{input_date.year}"
+
+
+# =====================================================
+# LEAVE CALCULATION UTILITY
+# =====================================================
+
+def calculate_actual_leave_days(start_date, end_date):
+    """
+    Calculate actual leave days excluding Sundays, Saturdays (0.5), and holidays.
+    
+    Args:
+        start_date: Start date of the leave
+        end_date: End date of the leave
+    
+    Returns:
+        float: Actual leave days count
+    """
+    from main import Holiday
+    
+    # Fetch all holidays from the Holiday table
+    holidays = [h.holiday_date for h in Holiday.query.all()]
+    
+    # Generate all dates in the range
+    total_days = (end_date - start_date).days + 1
+    actual_count = 0
+    
+    for i in range(total_days):
+        current_day = start_date + timedelta(days=i)
+        # Check if it's not a Sunday (weekday 6) and not a holiday
+        if current_day.weekday() != 6 and current_day not in holidays:
+            if current_day.weekday() == 5:  # Saturday
+                actual_count += 0.5
+            else:  # Monday to Friday (weekday 0-4)
+                actual_count += 1
+            
+    return actual_count
+
+
+# =====================================================
 # RETRY DECORATOR
 # =====================================================
 
@@ -68,6 +116,223 @@ def admin_input():
     if not session.get('admin_logged_in'):
         return redirect(url_for('admin.admin_login'))
     return render_template('admin/admin_input.html')
+
+
+@admin_bp.route('/admin/add-historical-leave', methods=['GET', 'POST'])
+def add_historical_leave():
+    """Add historical leave entry form and handler"""
+    if not session.get('admin_logged_in'):
+        return redirect(url_for('admin.admin_login'))
+    
+    from main import db, Employee, LeaveRequest, LeaveBalance, calculate_leave_days_python, get_fiscal_year_python
+    
+    if request.method == 'GET':
+        # Get all active employees sorted by EmployeeCode
+        employees = Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all()
+        return render_template('admin/add_historical_leave.html', employees=employees)
+    
+    # POST - Handle form submission
+    try:
+        emp_id = request.form.get('emp_id', type=int)
+        leave_type = request.form.get('leave_type')
+        start_date_str = request.form.get('start_date')
+        end_date_str = request.form.get('end_date')
+        reason = request.form.get('reason', '') or 'Historical Entry'
+        
+        if not emp_id:
+            return render_template('admin/add_historical_leave.html', 
+                                 employees=Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all(),
+                                 error='Please select an employee')
+        
+        if not start_date_str or not end_date_str:
+            return render_template('admin/add_historical_leave.html', 
+                                 employees=Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all(),
+                                 error='Please select start and end dates')
+        
+        # Parse dates
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        
+        if end_date < start_date:
+            return render_template('admin/add_historical_leave.html', 
+                                 employees=Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all(),
+                                 error='End date must be after start date')
+        
+        # Calculate duration
+        total_days = calculate_leave_days_python(start_date, end_date)
+        
+        # Calculate fiscal year based on start date (Oct 1 to Sept 30)
+        fiscal_year = get_fiscal_year_python(start_date)
+        
+        # Get employee details
+        employee = Employee.query.get(emp_id)
+        department = employee.Department if employee and employee.Department else 'Operations'
+        
+        # Normalize leave type
+        if leave_type == 'Annual Leave':
+            leave_type = 'Annual'
+        elif leave_type == 'Sick Leave':
+            leave_type = 'Sick'
+        
+        # Check if leave balance exists for the fiscal year
+        balance = LeaveBalance.query.filter_by(EmpID=emp_id, FiscalYear=fiscal_year).first()
+        
+        if not balance:
+            # Create leave balance for this fiscal year if it doesn't exist
+            balance = LeaveBalance(
+                EmpID=emp_id,
+                FiscalYear=fiscal_year,
+                AnnualDays=21,
+                SickDays=10,
+                CasualDays=5,
+                UsedAnnualDays=0,
+                UsedSickDays=0,
+                UsedCasualDays=0
+            )
+            db.session.add(balance)
+            db.session.commit()
+            print(f"✅ Created leave balance for employee {emp_id} fiscal year {fiscal_year}")
+        
+        # Check availability for Annual and Sick leave
+        if leave_type == 'Annual':
+            available = float(balance.AnnualDays - balance.UsedAnnualDays)
+            if total_days > available:
+                return render_template('admin/add_historical_leave.html', 
+                                     employees=Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all(),
+                                     error=f'Insufficient annual leave balance. Available: {available} days')
+        elif leave_type == 'Sick':
+            available = float(balance.SickDays - balance.UsedSickDays)
+            if total_days > available:
+                return render_template('admin/add_historical_leave.html', 
+                                     employees=Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all(),
+                                     error=f'Insufficient sick leave balance. Available: {available} days')
+        
+        # Create the leave request (auto-approved for historical entries)
+        new_request = LeaveRequest(
+            EmpID=emp_id,
+            LeaveType=leave_type,
+            StartDate=start_date,
+            EndDate=end_date,
+            TotalDays=total_days,
+            Reason=reason,
+            Department=department,
+            Status='Approved',
+            ApprovedDate=datetime.utcnow()
+        )
+        
+        db.session.add(new_request)
+        db.session.commit()
+        
+        # Deduct from leave balance
+        if leave_type in ['Annual', 'Sick', 'Casual']:
+            if leave_type == 'Annual':
+                balance.UsedAnnualDays = float(balance.UsedAnnualDays) + float(total_days)
+            elif leave_type == 'Sick':
+                balance.UsedSickDays = float(balance.UsedSickDays) + float(total_days)
+            elif leave_type == 'Casual':
+                balance.UsedCasualDays = float(balance.UsedCasualDays) + float(total_days)
+            db.session.commit()
+        
+        return render_template('admin/add_historical_leave.html', 
+                             employees=Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all(),
+                             success=f'Successfully added historical leave for {employee.FirstName} {employee.LastName}. Duration: {total_days} days. Fiscal Year: {fiscal_year}/{fiscal_year + 1}')
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return render_template('admin/add_historical_leave.html', 
+                             employees=Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all(),
+                             error=f'Error: {str(e)}')
+
+
+@admin_bp.route('/admin/dashboard')
+def admin_dashboard():
+    """Admin dashboard - displays today's attendance and leave status"""
+    if not session.get('admin_logged_in'):
+        return redirect(url_for('admin.admin_login'))
+    
+    from flask import current_app
+    
+    try:
+        db = current_app.db
+        Employee = current_app.Employee
+        Attendance = current_app.Attendance
+        LeaveRequest = current_app.LeaveRequest
+        
+        today = date.today()
+        employees = Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all()
+        
+        # Get today's attendance records
+        attendance_today = Attendance.query.filter_by(WorkDate=today).all()
+        
+        # Get approved leaves for today
+        approved_leaves_today = LeaveRequest.query.filter(
+            LeaveRequest.Status == 'Approved',
+            LeaveRequest.StartDate <= today,
+            LeaveRequest.EndDate >= today
+        ).all()
+        
+        # Create a set of employee IDs who are on leave today
+        emp_ids_on_leave = {leave.EmpID for leave in approved_leaves_today}
+        
+        # Get pending leave requests
+        pending_leaves = LeaveRequest.query.filter_by(Status='Pending').order_by(LeaveRequest.RequestedAt.desc()).all()
+        
+        # Get year filter from query params
+        selected_year = request.args.get('year_filter', '')
+        
+        # Get all approved leaves (for planning) - filtered by year if selected
+        if selected_year:
+            # Filter by fiscal year (Oct 1 to Sept 30)
+            fy_start = date(int(selected_year), 10, 1)  # October 1
+            fy_end = date(int(selected_year) + 1, 9, 30)  # September 30
+            
+            all_approved_leaves = LeaveRequest.query.filter(
+                LeaveRequest.Status == 'Approved',
+                LeaveRequest.StartDate >= fy_start,
+                LeaveRequest.StartDate <= fy_end
+            ).order_by(LeaveRequest.StartDate.desc()).all()
+        else:
+            all_approved_leaves = LeaveRequest.query.filter_by(Status='Approved').order_by(LeaveRequest.StartDate.desc()).all()
+        
+        # Get upcoming leaves (future dates)
+        upcoming_leaves = LeaveRequest.query.filter(
+            LeaveRequest.Status == 'Approved',
+            LeaveRequest.StartDate > today
+        ).order_by(LeaveRequest.StartDate.asc()).all()
+        
+        print(f"📅 Today: {today}")
+        print(f"👥 Employees on leave today: {emp_ids_on_leave}")
+        
+        return render_template('admin/dashboard.html',
+                             staff=employees,
+                             attendance=attendance_today,
+                             pending_leaves=pending_leaves,
+                             today=today,
+                             employee_summary=[],
+                             current_month=today.strftime('%B %Y'),
+                             selected_month='',
+                             selected_year=selected_year,
+                             approved_leaves=all_approved_leaves,
+                             all_approved_leaves=all_approved_leaves,
+                             staff_ids_on_leave_today=list(emp_ids_on_leave),
+                             upcoming_leaves=upcoming_leaves)
+    except Exception as e:
+        print(f"❌ ERROR in admin_dashboard: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return render_template('admin/dashboard.html',
+                             staff=[],
+                             attendance=[],
+                             pending_leaves=[],
+                             today=date.today(),
+                             employee_summary=[],
+                             current_month='',
+                             selected_month='',
+                             selected_year='',
+                             approved_leaves=[],
+                             all_approved_leaves=[],
+                             error=f"Database error: {str(e)}")
 
 # =====================================================
 # EMPLOYEE MANAGEMENT

@@ -92,6 +92,7 @@
                     id="hist_emp_id"
                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     required
+                    onchange="calculateHistoricalLeave()"
                 >
                     <option value="">-- Select Employee --</option>
                     {% for employee in staff %}
@@ -110,6 +111,7 @@
                     id="hist_leave_type"
                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     required
+                    onchange="calculateHistoricalLeave()"
                 >
                     <option value="Annual">Annual Leave</option>
                     <option value="Sick">Sick Leave</option>
@@ -127,6 +129,7 @@
                     id="hist_fiscal_year"
                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     required
+                    onchange="calculateHistoricalLeave()"
                 >
                     <option value="2021">2021/22</option>
                     <option value="2022">2022/23</option>
@@ -147,6 +150,7 @@
                     id="hist_start_date"
                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     required
+                    onchange="calculateHistoricalLeave()"
                 >
             </div>
             
@@ -161,6 +165,7 @@
                     id="hist_end_date"
                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     required
+                    onchange="calculateHistoricalLeave()"
                 >
             </div>
             
@@ -239,14 +244,85 @@
         {% endif %}
     </section>
     
+    <!-- Upcoming Leave Schedule -->
+    {% if upcoming_leaves %}
+    <section class="bg-white rounded-xl card-shadow p-4 md:p-6 mb-4">
+        <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+            <svg class="w-5 h-5 mr-2 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+            </svg>
+            Upcoming Leave Schedule
+        </h2>
+        
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-gray-50">
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Employee Name</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Department</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Start Date</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">End Date</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Countdown</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    {% for leave in upcoming_leaves %}
+                    {% set staff_member = namespace(name='Unknown', department='Operations') %}
+                    {% for s in staff %}
+                        {% if s.EmpID == leave.EmpID %}
+                            {% set staff_member.name = s.FirstName ~ ' ' ~ s.LastName %}
+                            {% set staff_member.department = s.Department or 'Operations' %}
+                        {% endif %}
+                    {% endfor %}
+                    {% set days_until = (leave.StartDate - today).days %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-3 py-2 font-medium text-gray-900">
+                            {{ staff_member.name }}
+                        </td>
+                        <td class="px-3 py-2 text-gray-600">
+                            {{ staff_member.department }}
+                        </td>
+                        <td class="px-3 py-2 text-gray-600">
+                            {{ leave.StartDate.strftime('%d/%m/%Y') }}
+                        </td>
+                        <td class="px-3 py-2 text-gray-600">
+                            {{ leave.EndDate.strftime('%d/%m/%Y') }}
+                        </td>
+                        <td class="px-3 py-2">
+                            {% if days_until == 0 %}
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">
+                                    Starts Today!
+                                </span>
+                            {% elif days_until == 1 %}
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800">
+                                    Starts Tomorrow
+                                </span>
+                            {% elif days_until <= 7 %}
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                    Starts in {{ days_until }} days
+                                </span>
+                            {% else %}
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                                    Starts in {{ days_until }} days
+                                </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+    {% endif %}
+    
     <!-- Approved Leaves Summary Table (for Planning) -->
     {% if approved_leaves %}
     <section class="bg-white rounded-xl card-shadow p-4 md:p-6 mb-4">
         <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
             <svg class="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 002-2V7a2 2 0 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
             </svg>
-            Approved Leave Summary
+            Approved Leave Summary - {{ selected_month if selected_month else 'All' }}
         </h2>
         
         <div class="overflow-x-auto">
@@ -303,6 +379,7 @@
                                 class="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-xs"
                                 data-start="{{ leave.StartDate.strftime('%Y-%m-%d') }}"
                                 data-end="{{ leave.EndDate.strftime('%Y-%m-%d') }}"
+                                data-emp="{{ staff_member.emp_code }}"
                                 onclick="generateLeavePDF(this)"
                             >
                                 Generate PDF
@@ -340,7 +417,9 @@
                 <tbody class="divide-y divide-gray-200">
                     {% for s in staff %}
                     {% set att = namespace(found=false, clock_in='', clock_out='', is_late=false, day_type='-', status='Not Clocked In') %}
+                    <!-- PRIORITY 1: Check if employee is on approved leave FIRST -->
                     {% set is_on_leave = s.EmpID in staff_ids_on_leave_today %}
+                    <!-- PRIORITY 2: Only check attendance if NOT on leave -->
                     {% if not is_on_leave %}
                         {% for a in attendance %}
                             {% if a.EmpID == s.EmpID %}
@@ -503,12 +582,12 @@
     {% endif %}
 </main>
 
-<!-- JavaScript -->
+<!-- Time-based Greeting JavaScript -->
 <script>
     function updateGreeting() {
-        var now = new Date();
-        var hour = now.getHours();
-        var greeting = 'Good Morning!';
+        const now = new Date();
+        const hour = now.getHours();
+        let greeting = 'Good Morning!';
         
         if (hour >= 12 && hour < 17) {
             greeting = 'Good Afternoon!';
@@ -522,99 +601,9 @@
     // Run on page load
     updateGreeting();
     
-    // Auto-refresh every 60 seconds
+    // Auto-refresh every 60 seconds to see new clock-ins in real-time
     setInterval(function() {
         location.reload();
     }, 60000);
-    
-    // Historical Leave Calculation
-    var startDateInput = document.getElementById('hist_start_date');
-    var endDateInput = document.getElementById('hist_end_date');
-    
-    if (startDateInput && endDateInput) {
-        startDateInput.addEventListener('change', calculateDuration);
-        endDateInput.addEventListener('change', calculateDuration);
-    }
-    
-    function calculateDuration() {
-        var startDateInput = document.getElementById('hist_start_date');
-        var endDateInput = document.getElementById('hist_end_date');
-        var durationDisplay = document.getElementById('hist-duration-display');
-        
-        if (!startDateInput.value || !endDateInput.value) {
-            if (durationDisplay) durationDisplay.textContent = '0';
-            return;
-        }
-        
-        var startDate = new Date(startDateInput.value);
-        var endDate = new Date(endDateInput.value);
-        
-        if (endDate < startDate) {
-            if (durationDisplay) durationDisplay.textContent = 'Invalid';
-            return;
-        }
-        
-        var totalDays = 0;
-        var current = new Date(startDate);
-        
-        while (current <= endDate) {
-            var dayOfWeek = current.getDay();
-            if (dayOfWeek === 0) {
-                // Sunday - skip
-            } else if (dayOfWeek === 6) {
-                totalDays += 0.5;
-            } else {
-                totalDays += 1;
-            }
-            current.setDate(current.getDate() + 1);
-        }
-        
-        if (durationDisplay) durationDisplay.textContent = totalDays.toString();
-    }
-    
-    // Form submission handler
-    var histForm = document.getElementById('historical-leave-form');
-    if (histForm) {
-        histForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            var empId = document.getElementById('hist_emp_id').value;
-            var startDate = document.getElementById('hist_start_date').value;
-            var endDate = document.getElementById('hist_end_date').value;
-            
-            if (!empId || !startDate || !endDate) {
-                alert('Please fill in all required fields');
-                return;
-            }
-            
-            var formData = new URLSearchParams();
-            formData.append('emp_id', empId);
-            formData.append('leave_type', document.getElementById('hist_leave_type').value);
-            formData.append('year', document.getElementById('hist_fiscal_year').value);
-            formData.append('start_date', startDate);
-            formData.append('end_date', endDate);
-            formData.append('reason', document.getElementById('hist_reason').value || 'Historical Entry');
-            
-            fetch('{{ url_for("admin.add_historical_leave") }}', {
-                method: 'POST',
-                body: formData
-            }).then(function(response) {
-                return response.text();
-            }).then(function(html) {
-                alert('Historical leave added successfully!');
-                location.reload();
-            }).catch(function(error) {
-                console.error('Error:', error);
-                alert('Error adding historical leave');
-            });
-        });
-    }
-    
-    // Generate PDF function
-    function generateLeavePDF(btn) {
-        var start = btn.getAttribute('data-start');
-        var end = btn.getAttribute('data-end');
-        window.open('/admin/api/reports/leave-pdf?start_date=' + start + '&end_date=' + end, '_blank');
-    }
 </script>
 {% endblock %}
