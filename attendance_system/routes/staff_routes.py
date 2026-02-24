@@ -216,6 +216,7 @@ def get_today_attendance():
                 'emp_id': emp_id,
                 'employee_name': f"{emp.FirstName} {emp.LastName}",
                 'employee_code': emp.EmployeeCode,
+                'department': emp.Department or '',
                 'status': status,
                 'clock_in': clock_in,
                 'clock_out': clock_out
