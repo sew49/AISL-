@@ -512,7 +512,6 @@ def add_historical_leave():
             end_date=end_date,
             total_days=total_days,
             reason=reason,
-            department=department,
             status='Approved',
             approved_date=datetime.utcnow()
         )
