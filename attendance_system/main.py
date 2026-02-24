@@ -305,26 +305,206 @@ def index():
     """Home page - staff portal"""
     return render_template('staff/index.html')
 
-# Admin Login route
-@app.route('/admin-login')
+# Admin Login route (standalone)
+@app.route('/admin-login', methods=['GET', 'POST'])
 def admin_login():
     """Admin login page"""
-    from flask import current_app
-    template_folder = 'admin'
+    if request.method == 'POST':
+        password = request.form.get('password', '')
+        if password == 'RAV4Adventure2019':
+            session['admin_logged_in'] = True
+            session.permanent = True
+            return redirect(url_for('admin_dashboard'))
+        return render_template('admin/admin_login.html', error='Invalid password')
     return render_template('admin/admin_login.html')
 
-# Admin Logout route (standalone - works with url_for('admin_logout'))
-@app.route('/admin/logout')
+# Admin Logout route (standalone)
+@app.route('/admin-logout')
 def admin_logout():
     """Admin logout - clears session and redirects to login"""
     session.pop('admin_logged_in', None)
     return redirect(url_for('admin_login'))
 
-# Load Admin routes
-print(">>> Loading Admin Routes <<<")
-from routes.admin_routes import admin_bp
-app.register_blueprint(admin_bp)
-print(">>> Admin Routes Registered Successfully <<<\n")
+# Admin Dashboard route (standalone)
+@app.route('/admin/dashboard')
+def admin_dashboard():
+    """Admin dashboard - displays today's attendance and leave status"""
+    if not session.get('admin_logged_in'):
+        return redirect(url_for('admin_login'))
+    
+    try:
+        today = date.today()
+        employees = Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all()
+        
+        # Get today's attendance records
+        attendance_today = Attendance.query.filter_by(WorkDate=today).all()
+        
+        # Get approved leaves for today
+        approved_leaves_today = LeaveRequest.query.filter(
+            LeaveRequest.Status == 'Approved',
+            LeaveRequest.StartDate <= today,
+            LeaveRequest.EndDate >= today
+        ).all()
+        
+        # Create a set of employee IDs who are on leave today
+        emp_ids_on_leave = {leave.EmpID for leave in approved_leaves_today}
+        
+        # Get pending leave requests
+        pending_leaves = LeaveRequest.query.filter_by(Status='Pending').order_by(LeaveRequest.RequestedAt.desc()).all()
+        
+        # Get year filter from query params
+        selected_year = request.args.get('year_filter', '')
+        
+        # Get all approved leaves (for planning) - filtered by year if selected
+        if selected_year:
+            fy_start = date(int(selected_year), 10, 1)
+            fy_end = date(int(selected_year) + 1, 9, 30)
+            
+            all_approved_leaves = LeaveRequest.query.filter(
+                LeaveRequest.Status == 'Approved',
+                LeaveRequest.StartDate >= fy_start,
+                LeaveRequest.StartDate <= fy_end
+            ).order_by(LeaveRequest.StartDate.desc()).all()
+        else:
+            all_approved_leaves = LeaveRequest.query.filter_by(Status='Approved').order_by(LeaveRequest.StartDate.desc()).all()
+        
+        # Get upcoming leaves (future dates)
+        upcoming_leaves = LeaveRequest.query.filter(
+            LeaveRequest.Status == 'Approved',
+            LeaveRequest.StartDate > today
+        ).order_by(LeaveRequest.StartDate.asc()).all()
+        
+        print(f"📅 Today: {today}")
+        print(f"👥 Employees on leave today: {emp_ids_on_leave}")
+        
+        return render_template('admin/dashboard.html',
+                            staff=employees,
+                            attendance=attendance_today,
+                            pending_leaves=pending_leaves,
+                            today=today,
+                            employee_summary=[],
+                            current_month=today.strftime('%B %Y'),
+                            selected_month='',
+                            selected_year=selected_year,
+                            approved_leaves=all_approved_leaves,
+                            all_approved_leaves=all_approved_leaves,
+                            staff_ids_on_leave_today=list(emp_ids_on_leave),
+                            upcoming_leaves=upcoming_leaves)
+    except Exception as e:
+        print(f"❌ ERROR in admin_dashboard: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return render_template('admin/dashboard.html',
+                            staff=[],
+                            attendance=[],
+                            pending_leaves=[],
+                            today=date.today(),
+                            employee_summary=[],
+                            current_month='',
+                            selected_month='',
+                            selected_year='',
+                            approved_leaves=[],
+                            all_approved_leaves=[],
+                            error=f"Database error: {str(e)}")
+
+# Add Historical Leave route (standalone)
+@app.route('/admin/add-historical-leave', methods=['GET', 'POST'])
+def add_historical_leave():
+    """Add historical leave entry form and handler"""
+    if not session.get('admin_logged_in'):
+        return redirect(url_for('admin_login'))
+    
+    if request.method == 'GET':
+        employees = Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all()
+        return render_template('admin/add_historical_leave.html', employees=employees)
+    
+    # POST - Handle form submission
+    try:
+        emp_id = request.form.get('emp_id', type=int)
+        leave_type = request.form.get('leave_type')
+        start_date_str = request.form.get('start_date')
+        end_date_str = request.form.get('end_date')
+        reason = request.form.get('reason', '') or 'Historical Entry'
+        
+        if not emp_id:
+            return render_template('admin/add_historical_leave.html', 
+                                employees=Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all(),
+                                error='Please select an employee')
+        
+        if not start_date_str or not end_date_str:
+            return render_template('admin/add_historical_leave.html', 
+                                employees=Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all(),
+                                error='Please select start and end dates')
+        
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        
+        if end_date < start_date:
+            return render_template('admin/add_historical_leave.html', 
+                                employees=Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all(),
+                                error='End date must be after start date')
+        
+        total_days = calculate_leave_days_python(start_date, end_date)
+        fiscal_year = get_fiscal_year_python(start_date)
+        
+        employee = Employee.query.get(emp_id)
+        department = employee.Department if employee and employee.Department else 'Operations'
+        
+        if leave_type == 'Annual Leave':
+            leave_type = 'Annual'
+        elif leave_type == 'Sick Leave':
+            leave_type = 'Sick'
+        
+        balance = LeaveBalance.query.filter_by(EmpID=emp_id, FiscalYear=fiscal_year).first()
+        
+        if not balance:
+            balance = LeaveBalance(
+                EmpID=emp_id,
+                FiscalYear=fiscal_year,
+                AnnualDays=21,
+                SickDays=10,
+                CasualDays=5,
+                UsedAnnualDays=0,
+                UsedSickDays=0,
+                UsedCasualDays=0
+            )
+            db.session.add(balance)
+            db.session.commit()
+        
+        new_request = LeaveRequest(
+            EmpID=emp_id,
+            LeaveType=leave_type,
+            StartDate=start_date,
+            EndDate=end_date,
+            TotalDays=total_days,
+            Reason=reason,
+            Department=department,
+            Status='Approved',
+            ApprovedDate=datetime.utcnow()
+        )
+        
+        db.session.add(new_request)
+        db.session.commit()
+        
+        if leave_type in ['Annual', 'Sick', 'Casual']:
+            if leave_type == 'Annual':
+                balance.UsedAnnualDays = float(balance.UsedAnnualDays) + float(total_days)
+            elif leave_type == 'Sick':
+                balance.UsedSickDays = float(balance.UsedSickDays) + float(total_days)
+            elif leave_type == 'Casual':
+                balance.UsedCasualDays = float(balance.UsedCasualDays) + float(total_days)
+            db.session.commit()
+        
+        return render_template('admin/add_historical_leave.html', 
+                            employees=Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all(),
+                            success=f'Successfully added historical leave for {employee.FirstName} {employee.LastName}. Duration: {total_days} days')
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return render_template('admin/add_historical_leave.html', 
+                            employees=Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all(),
+                            error=f'Error: {str(e)}')
 
 # Load Staff routes (no prefix - at root)
 print(">>> Loading Staff Routes <<<")

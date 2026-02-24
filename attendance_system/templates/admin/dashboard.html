@@ -27,39 +27,10 @@
 
 <main class="max-w-6xl mx-auto p-4">
     {% if not session.get('admin_logged_in') %}
-    <!-- Login Form -->
-    <section class="bg-white rounded-xl card-shadow p-4 md:p-6 max-w-md mx-auto mt-10">
-        <h2 class="text-lg font-semibold text-gray-800 mb-4">Admin Login</h2>
-        
-        {% if error %}
-        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-            {{ error }}
+        <div class="text-center mt-10">
+            <p class="text-gray-600 mb-4">Please log in to view the admin dashboard.</p>
+            <a href="{{ url_for('admin_login') }}" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg">Go to Login</a>
         </div>
-        {% endif %}
-        
-        <form method="POST" action="{{ url_for('admin.admin_login') }}">
-            <div class="mb-4">
-                <label class="block text-gray-700 text-sm font-bold mb-2" for="password">
-                    Password
-                </label>
-                <input 
-                    type="password" 
-                    name="password" 
-                    id="password"
-                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter admin password"
-                    required
-                >
-            </div>
-            
-            <button 
-                type="submit"
-                class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg transition-colors"
-            >
-                Login
-            </button>
-        </form>
-    </section>
     {% else %}
     <!-- Time-based Greeting -->
     <div class="bg-white rounded-xl card-shadow p-4 mt-4 mb-4">
@@ -71,250 +42,6 @@
             Today's Date: <span class="text-blue-600">{{ today.strftime('%A, %B %d, %Y') }}</span>
         </p>
     </div>
-    
-    <!-- Historical Data Entry Section -->
-    <section class="bg-white rounded-xl card-shadow p-4 md:p-6 mb-4">
-        <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-            <svg class="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-            </svg>
-            Historical Data Entry
-        </h2>
-        
-        <form id="historical-leave-form" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <!-- Staff Dropdown -->
-            <div>
-                <label class="block text-gray-700 text-sm font-bold mb-2" for="hist_emp_id">
-                    Select Employee
-                </label>
-                <select 
-                    name="emp_id" 
-                    id="hist_emp_id"
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    required
-                >
-                    <option value="">-- Select Employee --</option>
-                    {% for employee in staff %}
-                    <option value="{{ employee.EmpID }}">{{ employee.EmployeeCode }} - {{ employee.FirstName }} {{ employee.LastName }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            
-            <!-- Leave Type -->
-            <div>
-                <label class="block text-gray-700 text-sm font-bold mb-2" for="hist_leave_type">
-                    Leave Type
-                </label>
-                <select 
-                    name="leave_type" 
-                    id="hist_leave_type"
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    required
-                >
-                    <option value="Annual">Annual Leave</option>
-                    <option value="Sick">Sick Leave</option>
-                    <option value="Casual">Casual Leave</option>
-                </select>
-            </div>
-            
-            <!-- Fiscal Year Selector -->
-            <div>
-                <label class="block text-gray-700 text-sm font-bold mb-2" for="hist_fiscal_year">
-                    Fiscal Year
-                </label>
-                <select 
-                    name="year" 
-                    id="hist_fiscal_year"
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    required
-                >
-                    <option value="2021">2021/22</option>
-                    <option value="2022">2022/23</option>
-                    <option value="2023">2023/24</option>
-                    <option value="2024">2024/25</option>
-                    <option value="2025">2025/26</option>
-                </select>
-            </div>
-            
-            <!-- Start Date -->
-            <div>
-                <label class="block text-gray-700 text-sm font-bold mb-2" for="hist_start_date">
-                    Start Date
-                </label>
-                <input 
-                    type="date" 
-                    name="start_date" 
-                    id="hist_start_date"
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    required
-                >
-            </div>
-            
-            <!-- End Date -->
-            <div>
-                <label class="block text-gray-700 text-sm font-bold mb-2" for="hist_end_date">
-                    End Date
-                </label>
-                <input 
-                    type="date" 
-                    name="end_date" 
-                    id="hist_end_date"
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    required
-                >
-            </div>
-            
-            <!-- Duration Display -->
-            <div>
-                <label class="block text-gray-700 text-sm font-bold mb-2" for="hist_duration">
-                    Duration (Days)
-                </label>
-                <div id="hist-duration-display" class="w-full px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 font-semibold">
-                    0
-                </div>
-            </div>
-            
-            <!-- Reason -->
-            <div class="md:col-span-2 lg:col-span-1">
-                <label class="block text-gray-700 text-sm font-bold mb-2" for="hist_reason">
-                    Reason (Optional)
-                </label>
-                <input 
-                    type="text" 
-                    name="reason" 
-                    id="hist_reason"
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter reason for leave"
-                >
-            </div>
-            
-            <!-- Submit Button -->
-            <div class="flex items-end">
-                <button 
-                    type="submit"
-                    class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg transition-colors"
-                >
-                    Add Historical Leave
-                </button>
-            </div>
-        </form>
-        
-        <!-- Success/Error Message -->
-        <div id="hist-message" class="mt-4 hidden"></div>
-    </section>
-    
-    <!-- Month Filter for Leave Planning -->
-    <section class="bg-white rounded-xl card-shadow p-4 mb-4">
-        <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-            <svg class="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-            </svg>
-            Leave Planning - Filter by Month / Year
-        </h2>
-        
-        <form method="GET" action="{{ url_for('admin.admin_dashboard') }}" class="flex flex-wrap gap-4 items-center">
-            <label class="text-gray-700 font-semibold">Filter:</label>
-            <select 
-                name="year_filter" 
-                id="year-filter"
-                class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                onchange="this.form.submit()"
-            >
-                <option value="">All Years</option>
-                <option value="2021" {% if selected_year == '2021' %}selected{% endif %}>2021/22</option>
-                <option value="2022" {% if selected_year == '2022' %}selected{% endif %}>2022/23</option>
-                <option value="2023" {% if selected_year == '2023' %}selected{% endif %}>2023/24</option>
-                <option value="2024" {% if selected_year == '2024' %}selected{% endif %}>2024/25</option>
-                <option value="2025" {% if selected_year == '2025' %}selected{% endif %}>2025/26</option>
-            </select>
-            <a href="{{ url_for('admin.admin_dashboard') }}" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-gray-700 text-sm transition-colors">
-                Clear Filter
-            </a>
-        </form>
-        
-        {% if selected_year %}
-        <div class="mt-4 p-3 bg-indigo-50 rounded-lg">
-            <p class="text-indigo-700 font-semibold">Showing approved leave requests for Fiscal Year <span class="text-indigo-900">{{ selected_year }}/{{ (selected_year|int) + 1 }}</span></p>
-        </div>
-        {% endif %}
-    </section>
-    
-    <!-- Approved Leaves Summary Table (for Planning) -->
-    {% if approved_leaves %}
-    <section class="bg-white rounded-xl card-shadow p-4 md:p-6 mb-4">
-        <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-            <svg class="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
-            </svg>
-            Approved Leave Summary
-        </h2>
-        
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-                <thead>
-                    <tr class="bg-gray-50">
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Department</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Start Date</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">End Date</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Days</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200">
-                    {% for leave in approved_leaves %}
-                    {% set staff_member = namespace(name='Unknown', department='Operations', emp_code='') %}
-                    {% for s in staff %}
-                        {% if s.EmpID == leave.EmpID %}
-                            {% set staff_member.name = s.FirstName ~ ' ' ~ s.LastName %}
-                            {% set staff_member.department = s.Department or 'Operations' %}
-                            {% set staff_member.emp_code = s.EmployeeCode %}
-                        {% endif %}
-                    {% endfor %}
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-3 py-2 font-medium text-gray-900">
-                            {{ staff_member.name }}
-                            <span class="text-gray-500 text-xs">({{ staff_member.emp_code }})</span>
-                        </td>
-                        <td class="px-3 py-2">
-                            <span class="px-2 py-1 text-xs font-semibold rounded-full 
-                                {% if leave.LeaveType == 'Annual' %}bg-blue-100 text-blue-800
-                                {% elif leave.LeaveType == 'Sick' %}bg-red-100 text-red-800
-                                {% else %}bg-gray-100 text-gray-800{% endif %}">
-                                {{ leave.LeaveType }}
-                            </span>
-                        </td>
-                        <td class="px-3 py-2 text-gray-600">
-                            {{ staff_member.department }}
-                        </td>
-                        <td class="px-3 py-2 text-gray-600">
-                            {{ leave.StartDate.strftime('%d/%m/%Y') }}
-                        </td>
-                        <td class="px-3 py-2 text-gray-600">
-                            {{ leave.EndDate.strftime('%d/%m/%Y') }}
-                        </td>
-                        <td class="px-3 py-2 text-gray-600">
-                            {{ leave.TotalDays }}
-                        </td>
-                        <td class="px-3 py-2">
-                            <button 
-                                type="button"
-                                class="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-xs"
-                                data-start="{{ leave.StartDate.strftime('%Y-%m-%d') }}"
-                                data-end="{{ leave.EndDate.strftime('%Y-%m-%d') }}"
-                                onclick="generateLeavePDF(this)"
-                            >
-                                Generate PDF
-                            </button>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </section>
-    {% endif %}
     
     <!-- Today's Attendance -->
     <section class="bg-white rounded-xl card-shadow p-4 md:p-6 mb-4">
@@ -339,39 +66,48 @@
                 </thead>
                 <tbody class="divide-y divide-gray-200">
                     {% for s in staff %}
-                    {% set att = namespace(found=false, clock_in='', clock_out='', is_late=false, day_type='-', status='Not Clocked In') %}
-                    {% set is_on_leave = s.EmpID in staff_ids_on_leave_today %}
+                    {% set is_on_leave = s.id in staff_ids_on_leave_today %}
+                    {% set clock_in_display = '-' %}
+                    {% set clock_out_display = '-' %}
+                    {% set day_type_display = '-' %}
+                    {% set status_display = 'Not Clocked In' %}
+                    {% set is_late = false %}
+                    
                     {% if not is_on_leave %}
                         {% for a in attendance %}
-                            {% if a.EmpID == s.EmpID %}
-                                {% set att.found = true %}
-                                {% set att.clock_in = a.ClockIn.strftime('%H:%M') if a.ClockIn else '-' %}
-                                {% set att.clock_out = a.ClockOut.strftime('%H:%M') if a.ClockOut else '-' %}
-                                {% set att.day_type = a.DayType or '-' %}
-                                {% if a.ClockIn %}
-                                    {% set hour = a.ClockIn.hour %}
-                                    {% set minute = a.ClockIn.minute %}
-                                    {% set total_mins = hour * 60 + minute %}
+                            {% if a.staff_id == s.id %}
+                                {% set clock_in_display = a.clock_in.strftime('%H:%M') if a.clock_in else '-' %}
+                                {% set clock_out_display = a.clock_out.strftime('%H:%M') if a.clock_out else '-' %}
+                                {% set day_type_display = a.day_type or '-' %}
+                                {% set status_display = 'Present' %}
+                                {% if a.clock_in %}
+                                    {% set total_mins = a.clock_in.hour * 60 + a.clock_in.minute %}
                                     {% if total_mins > 8 * 60 + 15 %}
-                                        {% set att.is_late = true %}
+                                        {% set is_late = true %}
+                                        {% set status_display = 'Late' %}
                                     {% endif %}
                                 {% endif %}
                             {% endif %}
                         {% endfor %}
                     {% endif %}
+                    
                     <tr class="hover:bg-gray-50">
                         <td class="px-3 py-2 font-medium text-gray-900">
-                            {{ s.FirstName }} {{ s.LastName }}
-                            <span class="text-gray-500 text-xs">({{ s.EmployeeCode }})</span>
+                            {{ s.first_name }} {{ s.last_name }}
+                            <span class="text-gray-500 text-xs">({{ s.employee_code }})</span>
                         </td>
                         <td class="px-3 py-2">
                             {% if is_on_leave %}
                                 <span class="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">
                                     On Leave
                                 </span>
-                            {% elif att.found %}
-                                <span class="px-2 py-1 text-xs font-semibold rounded-full {% if att.is_late %}bg-red-100 text-red-800{% else %}bg-green-100 text-green-800{% endif %}">
-                                    {% if att.is_late %}LATE{% else %}Present{% endif %}
+                            {% elif status_display == 'Present' %}
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                    Present
+                                </span>
+                            {% elif status_display == 'Late' %}
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                                    LATE
                                 </span>
                             {% else %}
                                 <span class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
@@ -379,14 +115,14 @@
                                 </span>
                             {% endif %}
                         </td>
-                        <td class="px-3 py-2 {% if att.is_late %}font-bold text-red-600{% else %}text-gray-600{% endif %}">
-                            {% if is_on_leave %}-{% else %}{{ att.clock_in }}{% endif %}
+                        <td class="px-3 py-2 {% if is_late %}font-bold text-red-600{% else %}text-gray-600{% endif %}">
+                            {% if is_on_leave %}-{% else %}{{ clock_in_display }}{% endif %}
                         </td>
                         <td class="px-3 py-2 text-gray-600">
-                            {% if is_on_leave %}-{% else %}{{ att.clock_out }}{% endif %}
+                            {% if is_on_leave %}-{% else %}{{ clock_out_display }}{% endif %}
                         </td>
                         <td class="px-3 py-2 text-gray-600">
-                            {% if is_on_leave %}On Leave{% else %}{{ att.day_type }}{% endif %}
+                            {% if is_on_leave %}On Leave{% else %}{{ day_type_display }}{% endif %}
                         </td>
                     </tr>
                     {% endfor %}
@@ -397,24 +133,17 @@
         <!-- Summary -->
         <div class="mt-4 grid grid-cols-4 gap-4 text-center">
             {% set total_staff = staff|length %}
-            {% set present_count = namespace(value=0) %}
-            {% set late_count = namespace(value=0) %}
-            {% set on_leave_count = namespace(value=0) %}
-            {% for s in staff %}
-                {% if s.EmpID in staff_ids_on_leave_today %}
-                    {% set on_leave_count.value = on_leave_count.value + 1 %}
-                {% endif %}
-            {% endfor %}
+            {% set present_count = 0 %}
+            {% set late_count = 0 %}
+            {% set on_leave_count = staff_ids_on_leave_today|length %}
             {% for a in attendance %}
-                {% if a.ClockIn %}
-                    {% set hour = a.ClockIn.hour %}
-                    {% set minute = a.ClockIn.minute %}
-                    {% set total_mins = hour * 60 + minute %}
+                {% if a.clock_in %}
+                    {% set total_mins = a.clock_in.hour * 60 + a.clock_in.minute %}
                     {% if total_mins > 8 * 60 + 15 %}
-                        {% set late_count.value = late_count.value + 1 %}
-                        {% set present_count.value = present_count.value + 1 %}
+                        {% set late_count = late_count + 1 %}
+                        {% set present_count = present_count + 1 %}
                     {% else %}
-                        {% set present_count.value = present_count.value + 1 %}
+                        {% set present_count = present_count + 1 %}
                     {% endif %}
                 {% endif %}
             {% endfor %}
@@ -423,15 +152,15 @@
                 <div class="text-xs text-gray-600">Total Staff</div>
             </div>
             <div class="bg-green-50 rounded-lg p-3">
-                <div class="text-2xl font-bold text-green-600">{{ present_count.value }}</div>
+                <div class="text-2xl font-bold text-green-600">{{ present_count }}</div>
                 <div class="text-xs text-gray-600">Present</div>
             </div>
             <div class="bg-red-50 rounded-lg p-3">
-                <div class="text-2xl font-bold text-red-600">{{ late_count.value }}</div>
+                <div class="text-2xl font-bold text-red-600">{{ late_count }}</div>
                 <div class="text-xs text-gray-600">Late Arrivals</div>
             </div>
             <div class="bg-purple-50 rounded-lg p-3">
-                <div class="text-2xl font-bold text-purple-600">{{ on_leave_count.value }}</div>
+                <div class="text-2xl font-bold text-purple-600">{{ on_leave_count }}</div>
                 <div class="text-xs text-gray-600">On Leave</div>
             </div>
         </div>
@@ -459,37 +188,29 @@
                         <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-200">
+                <tbody class="divide-y divide-gray-200" id="leave-requests-body">
                     {% for leave in pending_leaves %}
                     <tr class="hover:bg-gray-50">
                         <td class="px-3 py-2 font-medium text-gray-900">
-                            {% for s in staff %}
-                                {% if s.EmpID == leave.EmpID %}
-                                    {{ s.FirstName }} {{ s.LastName }}
-                                {% endif %}
-                            {% endfor %}
+                            {{ leave.staff.first_name }} {{ leave.staff.last_name }}
                         </td>
                         <td class="px-3 py-2">
                             <span class="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">
-                                {{ leave.LeaveType }}
+                                {{ leave.leave_type }}
                             </span>
                         </td>
                         <td class="px-3 py-2 text-gray-600">
-                            {{ leave.StartDate.strftime('%d/%m') }} - {{ leave.EndDate.strftime('%d/%m/%Y') }}
+                            {{ leave.start_date.strftime('%d/%m') }} - {{ leave.end_date.strftime('%d/%m/%Y') }}
                         </td>
-                        <td class="px-3 py-2 text-gray-600">{{ leave.TotalDays }}</td>
-                        <td class="px-3 py-2 text-gray-600 max-w-xs truncate">{{ leave.Reason or '-' }}</td>
+                        <td class="px-3 py-2 text-gray-600">{{ leave.total_days }}</td>
+                        <td class="px-3 py-2 text-gray-600 max-w-xs truncate">{{ leave.reason or '-' }}</td>
                         <td class="px-3 py-2">
-                            <form method="POST" action="{{ url_for('admin.approve_leave_request', request_id=leave.RequestID) }}" style="display:inline;">
-                                <button type="submit" class="px-3 py-1 bg-green-500 hover:bg-green-600 text-white rounded text-xs">
-                                    Approve
-                                </button>
-                            </form>
-                            <form method="POST" action="{{ url_for('admin.reject_leave_request', request_id=leave.RequestID) }}" style="display:inline;">
-                                <button type="submit" class="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-xs ml-1">
-                                    Reject
-                                </button>
-                            </form>
+                            <button type="button" class="leave-action-btn px-3 py-1 bg-green-500 hover:bg-green-600 text-white rounded text-xs" data-id="{{ leave.id }}" data-action="approve">
+                                Approve
+                            </button>
+                            <button type="button" class="leave-action-btn px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded text-xs ml-1" data-id="{{ leave.id }}" data-action="reject">
+                                Reject
+                            </button>
                         </td>
                     </tr>
                     {% endfor %}
@@ -527,94 +248,44 @@
         location.reload();
     }, 60000);
     
-    // Historical Leave Calculation
-    var startDateInput = document.getElementById('hist_start_date');
-    var endDateInput = document.getElementById('hist_end_date');
-    
-    if (startDateInput && endDateInput) {
-        startDateInput.addEventListener('change', calculateDuration);
-        endDateInput.addEventListener('change', calculateDuration);
-    }
-    
-    function calculateDuration() {
-        var startDateInput = document.getElementById('hist_start_date');
-        var endDateInput = document.getElementById('hist_end_date');
-        var durationDisplay = document.getElementById('hist-duration-display');
-        
-        if (!startDateInput.value || !endDateInput.value) {
-            if (durationDisplay) durationDisplay.textContent = '0';
-            return;
-        }
-        
-        var startDate = new Date(startDateInput.value);
-        var endDate = new Date(endDateInput.value);
-        
-        if (endDate < startDate) {
-            if (durationDisplay) durationDisplay.textContent = 'Invalid';
-            return;
-        }
-        
-        var totalDays = 0;
-        var current = new Date(startDate);
-        
-        while (current <= endDate) {
-            var dayOfWeek = current.getDay();
-            if (dayOfWeek === 0) {
-                // Sunday - skip
-            } else if (dayOfWeek === 6) {
-                totalDays += 0.5;
-            } else {
-                totalDays += 1;
-            }
-            current.setDate(current.getDate() + 1);
-        }
-        
-        if (durationDisplay) durationDisplay.textContent = totalDays.toString();
-    }
-    
-    // Form submission handler
-    var histForm = document.getElementById('historical-leave-form');
-    if (histForm) {
-        histForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            var empId = document.getElementById('hist_emp_id').value;
-            var startDate = document.getElementById('hist_start_date').value;
-            var endDate = document.getElementById('hist_end_date').value;
-            
-            if (!empId || !startDate || !endDate) {
-                alert('Please fill in all required fields');
-                return;
-            }
-            
-            var formData = new URLSearchParams();
-            formData.append('emp_id', empId);
-            formData.append('leave_type', document.getElementById('hist_leave_type').value);
-            formData.append('year', document.getElementById('hist_fiscal_year').value);
-            formData.append('start_date', startDate);
-            formData.append('end_date', endDate);
-            formData.append('reason', document.getElementById('hist_reason').value || 'Historical Entry');
-            
-            fetch('{{ url_for("admin.add_historical_leave") }}', {
-                method: 'POST',
-                body: formData
-            }).then(function(response) {
-                return response.text();
-            }).then(function(html) {
-                alert('Historical leave added successfully!');
-                location.reload();
-            }).catch(function(error) {
-                console.error('Error:', error);
-                alert('Error adding historical leave');
+    // Handle leave approve/reject using event delegation
+    document.addEventListener('DOMContentLoaded', function() {
+        var leaveBody = document.getElementById('leave-requests-body');
+        if (leaveBody) {
+            leaveBody.addEventListener('click', function(e) {
+                if (e.target.classList.contains('leave-action-btn')) {
+                    var button = e.target;
+                    var requestId = button.getAttribute('data-id');
+                    var action = button.getAttribute('data-action');
+                    
+                    if (!confirm('Are you sure you want to ' + action + ' this leave request?')) {
+                        return;
+                    }
+                    
+                    var url = '/api/leave-requests/' + requestId + '/' + action;
+                    
+                    fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert(data.message);
+                            location.reload();
+                        } else {
+                            alert('Error: ' + data.error);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('An error occurred. Please try again.');
+                    });
+                }
             });
-        });
-    }
-    
-    // Generate PDF function
-    function generateLeavePDF(btn) {
-        var start = btn.getAttribute('data-start');
-        var end = btn.getAttribute('data-end');
-        window.open('/admin/api/reports/leave-pdf?start_date=' + start + '&end_date=' + end, '_blank');
-    }
+        }
+    });
 </script>
 {% endblock %}

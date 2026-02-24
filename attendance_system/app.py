@@ -431,6 +431,85 @@ def admin_logout():
     return redirect(url_for('admin_login'))
 
 
+@app.route('/admin/add-historical-leave', methods=['GET', 'POST'])
+def add_historical_leave():
+    """Add historical leave entry form and handler"""
+    if not session.get('admin_logged_in'):
+        return redirect(url_for('admin_login'))
+    
+    if request.method == 'GET':
+        employees = Staff.query.filter_by(is_active=True).order_by(Staff.employee_code.asc()).all()
+        return render_template('admin/add_historical_leave.html', employees=employees)
+    
+    # POST - Handle form submission
+    try:
+        emp_id = request.form.get('emp_id', type=int)
+        leave_type = request.form.get('leave_type')
+        start_date_str = request.form.get('start_date')
+        end_date_str = request.form.get('end_date')
+        reason = request.form.get('reason', '') or 'Historical Entry'
+        
+        if not emp_id:
+            return render_template('admin/add_historical_leave.html', 
+                                employees=Staff.query.filter_by(is_active=True).order_by(Staff.employee_code.asc()).all(),
+                                error='Please select an employee')
+        
+        if not start_date_str or not end_date_str:
+            return render_template('admin/add_historical_leave.html', 
+                                employees=Staff.query.filter_by(is_active=True).order_by(Staff.employee_code.asc()).all(),
+                                error='Please select start and end dates')
+        
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        
+        if end_date < start_date:
+            return render_template('admin/add_historical_leave.html', 
+                                employees=Staff.query.filter_by(is_active=True).order_by(Staff.employee_code.asc()).all(),
+                                error='End date must be after start date')
+        
+        total_days = calculate_leave_days(start_date, end_date)
+        
+        staff_member = Staff.query.get(emp_id)
+        department = staff_member.department if staff_member and staff_member.department else 'Operations'
+        
+        if leave_type == 'Annual Leave':
+            leave_type = 'Annual'
+        
+        new_request = LeaveRequest(
+            staff_id=emp_id,
+            leave_type=leave_type,
+            start_date=start_date,
+            end_date=end_date,
+            total_days=total_days,
+            reason=reason,
+            department=department,
+            status='Approved',
+            approved_date=datetime.utcnow()
+        )
+        
+        db.session.add(new_request)
+        db.session.commit()
+        
+        # Deduct from leave balance
+        if staff_member:
+            if leave_type == 'Annual':
+                staff_member.leave_balance = max(0, staff_member.leave_balance - total_days)
+            elif leave_type == 'Sick':
+                staff_member.sick_leave_balance = max(0, getattr(staff_member, 'sick_leave_balance', 7) - total_days)
+            db.session.commit()
+        
+        return render_template('admin/add_historical_leave.html', 
+                            employees=Staff.query.filter_by(is_active=True).order_by(Staff.employee_code.asc()).all(),
+                            success=f'Successfully added historical leave for {staff_member.first_name} {staff_member.last_name}. Duration: {total_days} days')
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return render_template('admin/add_historical_leave.html', 
+                            employees=Staff.query.filter_by(is_active=True).order_by(Staff.employee_code.asc()).all(),
+                            error=f'Error: {str(e)}')
+
+
 @app.route('/admin-input')
 def admin_input():
     """Admin input page"""
