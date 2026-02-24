@@ -12,6 +12,19 @@ import os
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+try:
+    from app import db, Staff, LeaveRequest, Holiday  # type: ignore
+except ImportError:
+    # Fallback for module not found
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("app", os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "app.py"))
+    app_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(app_module)
+    db = app_module.db
+    Staff = app_module.Staff
+    LeaveRequest = app_module.LeaveRequest
+    Holiday = app_module.Holiday
+
 # =====================================================
 # FISCAL YEAR UTILITY
 # =====================================================
@@ -39,8 +52,6 @@ def calculate_actual_leave_days(start_date, end_date):
     Returns:
         float: Actual leave days count
     """
-    # Import from main which has the models attached
-    from app import db, Staff, LeaveRequest, Holiday
     # Fetch all holidays from the Holiday table
     holidays = [h.holiday_date for h in Holiday.query.all()]
     
