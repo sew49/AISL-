@@ -657,6 +657,72 @@ def admin_reports():
                          total_workdays=TOTAL_WORKDAYS)
 
 
+@app.route('/admin/annual_report')
+def annual_report():
+    """
+    Annual Report - Shows leave summary for each employee by fiscal year.
+    Accepts fiscal_year as URL parameter.
+    Calculates Estimated Days Worked = 260 - Total Leave Days.
+    """
+    if not session.get('admin_logged_in'):
+        return redirect(url_for('admin_login'))
+    
+    # Get the fiscal year from query params, default to current fiscal year
+    selected_fiscal_year = request.args.get('fiscal_year', type=int)
+    
+    # Calculate current fiscal year based on current date
+    today = date.today()
+    if today.month >= 10:
+        current_fiscal_year = today.year + 1
+    else:
+        current_fiscal_year = today.year
+    
+    # Use selected fiscal year or default to current
+    fiscal_year = selected_fiscal_year if selected_fiscal_year else current_fiscal_year
+    
+    # Get all active staff members
+    staff_members = Staff.query.filter_by(is_active=True).order_by(Staff.employee_code.asc()).all()
+    
+    # Get all approved leave requests for the selected fiscal year
+    leave_requests = LeaveRequest.query.filter(
+        LeaveRequest.status == 'Approved',
+        LeaveRequest.fiscal_year == fiscal_year
+    ).all()
+    
+    # Group leave by staff_id and sum total days
+    leave_by_staff = {}
+    for lr in leave_requests:
+        staff_id = lr.staff_id
+        if staff_id not in leave_by_staff:
+            leave_by_staff[staff_id] = 0
+        leave_by_staff[staff_id] += lr.total_days
+    
+    # Build report data
+    TOTAL_WORKDAYS = 260
+    
+    report_data = []
+    for staff in staff_members:
+        staff_id = staff.id
+        total_leave_taken = leave_by_staff.get(staff_id, 0)
+        estimated_days_worked = TOTAL_WORKDAYS - total_leave_taken
+        
+        report_data.append({
+            'employee_name': f"{staff.first_name} {staff.last_name}",
+            'employee_id': staff.employee_code,
+            'total_leave_taken': total_leave_taken,
+            'estimated_days_worked': estimated_days_worked
+        })
+    
+    # Available fiscal years for dropdown (2021-2026)
+    available_fiscal_years = list(range(2021, 2027))
+    
+    return render_template('admin/annual_report.html',
+                         report_data=report_data,
+                         selected_fiscal_year=fiscal_year,
+                         available_fiscal_years=available_fiscal_years,
+                         total_workdays=TOTAL_WORKDAYS)
+
+
 # =====================================================
 # API ROUTES - WITH ERROR HANDLING
 # =====================================================

@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block title %}Annual Report - Attendance System{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<header class="gradient-bg text-white py-4 px-4 shadow-lg sticky top-0 z-50 no-print">
+    <div class="max-w-6xl mx-auto">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+            <div>
+                <h1 class="text-xl md:text-2xl font-bold">Annual Report</h1>
+                <p class="text-blue-200 text-sm">Leave Summary by Fiscal Year</p>
+            </div>
+            <div class="flex gap-2">
+                <a href="{{ url_for('admin_dashboard') }}" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-sm transition-colors">
+                    Dashboard
+                </a>
+                <a href="{{ url_for('index') }}" class="px-4 py-2 bg-green-500 hover:bg-green-600 rounded-lg text-sm transition-colors">
+                    Staff Portal
+                </a>
+                {% if session.get('admin_logged_in') %}
+                <a href="{{ url_for('admin_logout') }}" class="px-4 py-2 bg-red-500 hover:bg-red-600 rounded-lg text-sm transition-colors">
+                    Logout
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</header>
+
+<main class="max-w-6xl mx-auto p-4">
+    {% if not session.get('admin_logged_in') %}
+        <div class="text-center mt-10">
+            <p class="text-gray-600 mb-4">Please log in to view the report.</p>
+            <a href="{{ url_for('admin_login') }}" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg">Go to Login</a>
+        </div>
+    {% else %}
+    <!-- Filter and Print Button -->
+    <div class="bg-white rounded-xl card-shadow p-4 mt-4 mb-4 no-print">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+                <h2 class="text-lg font-semibold text-gray-800">Annual Leave Report</h2>
+                <p class="text-sm text-gray-600">View estimated days worked for each employee</p>
+            </div>
+            <div class="flex gap-2 items-center">
+                <form method="GET" action="{{ url_for('annual_report') }}" class="flex gap-2 items-center">
+                    <label for="fiscal_year" class="text-sm font-medium text-gray-700">Fiscal Year:</label>
+                    <select name="fiscal_year" id="fiscal_year" class="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" onchange="this.form.submit()">
+                        {% for fy in available_fiscal_years %}
+                        <option value="{{ fy }}" {% if fy == selected_fiscal_year %}selected{% endif %}>FY {{ fy }}</option>
+                        {% endfor %}
+                    </select>
+                </form>
+                <button onclick="window.print()" class="bg-gray-800 text-white px-4 py-2 rounded no-print hover:bg-gray-900">
+                    Print Annual Report
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Table -->
+    <div class="bg-white rounded-xl card-shadow p-4 md:p-6">
+        <div class="mb-4">
+            <h3 class="text-xl font-bold text-gray-800">Annual Report - FY {{ selected_fiscal_year }}</h3>
+            <p class="text-sm text-gray-600">Total workdays in a year: {{ total_workdays }}</p>
+        </div>
+        
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-gray-100">
+                        <th class="px-4 py-3 text-left font-semibold text-gray-700">Employee Name</th>
+                        <th class="px-4 py-3 text-left font-semibold text-gray-700">Employee ID</th>
+                        <th class="px-4 py-3 text-right font-semibold text-gray-700">Total Leave Taken</th>
+                        <th class="px-4 py-3 text-right font-semibold text-gray-700">Estimated Days Worked</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in report_data %}
+                    <tr class="border-b hover:bg-gray-50">
+                        <td class="px-4 py-3 font-medium text-gray-800">{{ row.employee_name }}</td>
+                        <td class="px-4 py-3 text-gray-600">{{ row.employee_id }}</td>
+                        <td class="px-4 py-3 text-right {% if row.total_leave_taken > 0 %}text-orange-600{% else %}text-gray-600{% endif %}">{{ row.total_leave_taken }}</td>
+                        <td class="px-4 py-3 text-right {% if row.estimated_days_worked >= 200 %}text-green-600{% elif row.estimated_days_worked >= 150 %}text-yellow-600{% else %}text-red-600{% endif %} font-bold">{{ row.estimated_days_worked }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="px-4 py-8 text-center text-gray-500">
+                            No leave records found for Fiscal Year {{ selected_fiscal_year }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 no-print">
+        <div class="bg-white rounded-xl card-shadow p-4">
+            <h4 class="text-sm font-semibold text-gray-600 uppercase">Total Employees</h4>
+            <p class="text-2xl font-bold text-gray-800 mt-1">{{ report_data|length }}</p>
+        </div>
+        <div class="bg-white rounded-xl card-shadow p-4">
+            <h4 class="text-sm font-semibold text-gray-600 uppercase">Total Leave Days</h4>
+            <p class="text-2xl font-bold text-orange-600 mt-1">
+                {{ report_data|sum(attribute='total_leave_taken') }}
+            </p>
+        </div>
+        <div class="bg-white rounded-xl card-shadow p-4">
+            <h4 class="text-sm font-semibold text-gray-600 uppercase">Total Estimated Days Worked</h4>
+            <p class="text-2xl font-bold text-green-600 mt-1">
+                {{ report_data|sum(attribute='estimated_days_worked') }}
+            </p>
+        </div>
+    </div>
+    {% endif %}
+</main>
+
+<!-- Print-specific CSS -->
+<style>
+@media print {
+    .no-print {
+        display: none !important;
+    }
+    body {
+        background: white !important;
+    }
+    .card-shadow {
+        box-shadow: none !important;
+        border: 1px solid #ddd !important;
+    }
+}
+</style>
+{% endblock %}
