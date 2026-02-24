@@ -263,23 +263,26 @@
                 <tbody class="divide-y divide-gray-200">
                     {% for s in staff %}
                     {% set att = namespace(found=false, clock_in='', clock_out='', is_late=false, day_type='-', status='Not Clocked In') %}
-                    {% for a in attendance %}
-                        {% if a.staff_id == s.id %}
-                            {% set att.found = true %}
-                            {% set att.clock_in = a.clock_in.strftime('%H:%M') if a.clock_in else '-' %}
-                            {% set att.clock_out = a.clock_out.strftime('%H:%M') if a.clock_out else '-' %}
-                            {% set att.is_late = a.is_late %}
-                            {% set att.day_type = a.day_type %}
-                            {% set att.status = a.status %}
-                        {% endif %}
-                    {% endfor %}
-                    <!-- Check if employee is on approved leave today -->
+                    <!-- PRIORITY 1: Check if employee is on approved leave FIRST -->
                     {% set is_on_leave = false %}
                     {% for leave in all_approved_leaves %}
                         {% if leave.staff_id == s.id and today >= leave.start_date and today <= leave.end_date %}
                             {% set is_on_leave = true %}
                         {% endif %}
                     {% endfor %}
+                    <!-- PRIORITY 2: Only check attendance if NOT on leave -->
+                    {% if not is_on_leave %}
+                        {% for a in attendance %}
+                            {% if a.staff_id == s.id %}
+                                {% set att.found = true %}
+                                {% set att.clock_in = a.clock_in.strftime('%H:%M') if a.clock_in else '-' %}
+                                {% set att.clock_out = a.clock_out.strftime('%H:%M') if a.clock_out else '-' %}
+                                {% set att.is_late = a.is_late %}
+                                {% set att.day_type = a.day_type %}
+                                {% set att.status = a.status %}
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
                     <tr class="hover:bg-gray-50">
                         <td class="px-3 py-2 font-medium text-gray-900">
                             {{ s.first_name }} {{ s.last_name }}
