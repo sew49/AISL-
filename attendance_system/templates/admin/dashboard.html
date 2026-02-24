@@ -166,6 +166,41 @@
         </div>
     </section>
     
+    <!-- Manual Leave Entry Form (2021-2025) -->
+    <div class="mt-8 bg-white p-6 rounded-lg shadow-md">
+        <h3 class="text-xl font-bold mb-4">Admin: Manual Leave Entry (2021-2025)</h3>
+        <form action="{{ url_for('admin_add_manual_leave') }}" method="POST" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="block mb-1">Select Employee</label>
+                <select name="staff_id" class="w-full border rounded p-2" required>
+                    {% for employee in staff_members %}
+                    <option value="{{ employee.id }}">{{ employee.name }} ({{ employee.employee_id }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="block mb-1">Leave Type</label>
+                <select name="leave_type" class="w-full border rounded p-2">
+                    <option value="Annual Leave">Annual Leave</option>
+                    <option value="Sick Leave">Sick Leave</option>
+                </select>
+            </div>
+            <div>
+                <label class="block mb-1">Start Date</label>
+                <input type="date" name="start_date" class="w-full border rounded p-2" required>
+            </div>
+            <div>
+                <label class="block mb-1">End Date</label>
+                <input type="date" name="end_date" class="w-full border rounded p-2" required>
+            </div>
+            <div class="md:col-span-2">
+                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 w-full">
+                    Add Historical Leave
+                </button>
+            </div>
+        </form>
+    </div>
+    
     <!-- Pending Leave Requests -->
     <section class="bg-white rounded-xl card-shadow p-4 md:p-6">
         <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">

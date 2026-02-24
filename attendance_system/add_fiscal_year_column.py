@@ -1,5 +1,5 @@
 """Migration script to add fiscal_year column to leave_requests table"""
-from app.app import app, db
+from app import app, db
 
 def add_fiscal_year_column():
     with app.app_context():
