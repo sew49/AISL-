@@ -313,6 +313,13 @@ def admin_login():
     template_folder = 'admin'
     return render_template('admin/admin_login.html')
 
+# Admin Logout route (standalone - works with url_for('admin_logout'))
+@app.route('/admin/logout')
+def admin_logout():
+    """Admin logout - clears session and redirects to login"""
+    session.pop('admin_logged_in', None)
+    return redirect(url_for('admin_login'))
+
 # Load Admin routes
 print(">>> Loading Admin Routes <<<")
 from routes.admin_routes import admin_bp

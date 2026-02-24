@@ -6,6 +6,11 @@ from flask import Blueprint, request, jsonify, render_template, redirect, url_fo
 from datetime import datetime, date, timedelta
 from functools import wraps
 import time
+import sys
+import os
+
+# Add parent directory to path for imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # =====================================================
 # FISCAL YEAR UTILITY
