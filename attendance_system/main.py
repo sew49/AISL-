@@ -387,8 +387,15 @@ def admin_dashboard():
             LeaveRequest.StartDate > today
         ).order_by(LeaveRequest.StartDate.asc()).all()
         
+        # Get historical leaves (2021-2025)
+        historical_leaves = LeaveRequest.query.filter(
+            LeaveRequest.Status == 'Approved',
+            LeaveRequest.FiscalYear.in_([2021, 2022, 2023, 2024, 2025])
+        ).order_by(LeaveRequest.StartDate.desc()).all()
+        
         print(f"📅 Today: {today}")
         print(f"👥 Employees on leave today: {emp_ids_on_leave}")
+        print(f"📋 Historical leaves found: {len(historical_leaves)}")
         
         return render_template('admin/dashboard.html',
                             staff=employees,
@@ -402,7 +409,8 @@ def admin_dashboard():
                             approved_leaves=all_approved_leaves,
                             all_approved_leaves=all_approved_leaves,
                             staff_ids_on_leave_today=list(emp_ids_on_leave),
-                            upcoming_leaves=upcoming_leaves)
+                            upcoming_leaves=upcoming_leaves,
+                            historical_leaves=historical_leaves)
     except Exception as e:
         print(f"❌ ERROR in admin_dashboard: {str(e)}")
         import traceback
