@@ -367,6 +367,12 @@ def admin_dashboard():
         # Get all approved leaves for "On Leave" status in attendance
         all_approved_leaves = LeaveRequest.query.filter_by(status='Approved').all()
         
+        # Get upcoming approved leaves (future dates) for the schedule table
+        upcoming_leaves = LeaveRequest.query.filter(
+            LeaveRequest.status == 'Approved',
+            LeaveRequest.start_date > today
+        ).order_by(LeaveRequest.start_date.asc()).all()
+        
         return render_template('admin/dashboard.html', 
                              staff=staff_members,
                              attendance=today_attendance,
@@ -376,7 +382,8 @@ def admin_dashboard():
                              current_month=current_month,
                              selected_month=selected_month,
                              approved_leaves=approved_leaves,
-                             all_approved_leaves=all_approved_leaves)
+                             all_approved_leaves=all_approved_leaves,
+                             upcoming_leaves=upcoming_leaves)
     except Exception as e:
         print(f"❌ ERROR in admin_dashboard: {str(e)}")
         return render_template('admin/dashboard.html', 
