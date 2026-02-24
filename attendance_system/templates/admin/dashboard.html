@@ -173,7 +173,7 @@
             <div>
                 <label class="block text-gray-700 text-sm font-bold mb-1">Select Employee</label>
                 <select name="emp_id" class="w-full border border-gray-300 rounded-lg p-2 text-sm" required>
-="">-- Select --                    <option value</option>
+                    <option value="">-- Select --</option>
                     {% for employee in staff %}
                     <option value="{{ employee.id }}">{{ employee.employee_code }} - {{ employee.first_name }} {{ employee.last_name }}</option>
                     {% endfor %}
