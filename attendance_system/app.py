@@ -556,21 +556,41 @@ def get_today_attendance():
         attendance = Attendance.query.filter_by(work_date=today).all()
         staff_members = Staff.query.filter_by(is_active=True).order_by(Staff.employee_code.asc()).all()
         
+        # Get approved leaves for today
+        approved_leaves_today = LeaveRequest.query.filter(
+            LeaveRequest.status == 'Approved',
+            LeaveRequest.start_date <= today,
+            LeaveRequest.end_date >= today
+        ).all()
+        
+        # Create a lookup for approved leaves
+        emp_on_leave = {leave.staff_id: leave for leave in approved_leaves_today}
+        
         result = []
         for staff in staff_members:
-            att = next((a for a in attendance if a.staff_id == staff.id), None)
-            
-            if att:
-                status = 'Present' if not att.clock_out else 'Clocked Out'
-                clock_in = att.clock_in.strftime('%H:%M') if att.clock_in else ''
-                clock_out = att.clock_out.strftime('%H:%M') if att.clock_out else ''
-                # Check if late based on 08:15 AM threshold
-                is_late = is_late_arrival(att.clock_in)
-            else:
-                status = 'Not Clocked In'
+            # First check: Is employee on approved leave today?
+            leave = emp_on_leave.get(staff.id)
+            if leave:
+                status = 'On Leave'
                 clock_in = ''
                 clock_out = ''
                 is_late = False
+            else:
+                # Second check: Check attendance table
+                att = next((a for a in attendance if a.staff_id == staff.id), None)
+                
+                if att:
+                    status = 'Present' if not att.clock_out else 'Clocked Out'
+                    clock_in = att.clock_in.strftime('%H:%M') if att.clock_in else ''
+                    clock_out = att.clock_out.strftime('%H:%M') if att.clock_out else ''
+                    # Check if late based on 08:15 AM threshold
+                    is_late = is_late_arrival(att.clock_in)
+                else:
+                    # Third: No leave, no attendance = Not Clocked In
+                    status = 'Not Clocked In'
+                    clock_in = ''
+                    clock_out = ''
+                    is_late = False
             
             result.append({
                 'id': staff.id,
