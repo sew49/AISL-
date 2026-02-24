@@ -40,8 +40,7 @@ def calculate_actual_leave_days(start_date, end_date):
         float: Actual leave days count
     """
     # Import from main which has the models attached
-    from main import Holiday, db
-    
+    from app import db, Staff, LeaveRequest, Holiday
     # Fetch all holidays from the Holiday table
     holidays = [h.holiday_date for h in Holiday.query.all()]
     
