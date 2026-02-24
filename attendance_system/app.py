@@ -567,6 +567,96 @@ def admin_leave():
         }), 500
 
 
+@app.route('/admin/reports')
+def admin_reports():
+    """
+    Admin reports page - Shows leave and attendance summary by fiscal year.
+    Queries all LeaveRequest records for a specific fiscal_year.
+    Groups them by staff_id to show total days taken per person.
+    Calculates 'Days Worked' by taking 260 (total workdays in a year) and subtracting their total leave days.
+    """
+    if not session.get('admin_logged_in'):
+        return redirect(url_for('admin_login'))
+    
+    # Get the fiscal year from query params, default to current fiscal year
+    selected_fiscal_year = request.args.get('fiscal_year', type=int)
+    
+    # Calculate current fiscal year based on current date
+    today = date.today()
+    if today.month >= 10:
+        current_fiscal_year = today.year + 1
+    else:
+        current_fiscal_year = today.year
+    
+    # Use selected fiscal year or default to current
+    fiscal_year = selected_fiscal_year if selected_fiscal_year else current_fiscal_year
+    
+    # Get all active staff members
+    staff_members = Staff.query.filter_by(is_active=True).order_by(Staff.employee_code.asc()).all()
+    
+    # Get all approved leave requests for the selected fiscal year
+    leave_requests = LeaveRequest.query.filter(
+        LeaveRequest.status == 'Approved',
+        LeaveRequest.fiscal_year == fiscal_year
+    ).all()
+    
+    # Group leave requests by staff_id and calculate totals
+    leave_summary = {}
+    for lr in leave_requests:
+        staff_id = lr.staff_id
+        if staff_id not in leave_summary:
+            leave_summary[staff_id] = {
+                'annual_leave_days': 0,
+                'sick_leave_days': 0,
+                'total_leave_days': 0
+            }
+        
+        if lr.leave_type == 'Annual':
+            leave_summary[staff_id]['annual_leave_days'] += lr.total_days
+        elif lr.leave_type == 'Sick':
+            leave_summary[staff_id]['sick_leave_days'] += lr.total_days
+        
+        leave_summary[staff_id]['total_leave_days'] += lr.total_days
+    
+    # Build the summary report
+    TOTAL_WORKDAYS = 260  # Standard workdays per year
+    
+    report_data = []
+    for staff in staff_members:
+        staff_id = staff.id
+        
+        # Get leave summary for this staff member
+        leave_data = leave_summary.get(staff_id, {
+            'annual_leave_days': 0,
+            'sick_leave_days': 0,
+            'total_leave_days': 0
+        })
+        
+        # Calculate days worked
+        days_worked = TOTAL_WORKDAYS - leave_data['total_leave_days']
+        
+        report_data.append({
+            'staff_id': staff_id,
+            'employee_code': staff.employee_code,
+            'employee_name': f"{staff.first_name} {staff.last_name}",
+            'department': staff.department or 'Operations',
+            'annual_leave_days': leave_data['annual_leave_days'],
+            'sick_leave_days': leave_data['sick_leave_days'],
+            'total_leave_days': leave_data['total_leave_days'],
+            'days_worked': days_worked
+        })
+    
+    # Get available fiscal years for the dropdown (2021-2025 plus current)
+    available_fiscal_years = [2021, 2022, 2023, 2024, 2025, current_fiscal_year]
+    available_fiscal_years = sorted(set(available_fiscal_years), reverse=True)
+    
+    return render_template('admin/reports.html',
+                         report_data=report_data,
+                         selected_fiscal_year=fiscal_year,
+                         available_fiscal_years=available_fiscal_years,
+                         total_workdays=TOTAL_WORKDAYS)
+
+
 # =====================================================
 # API ROUTES - WITH ERROR HANDLING
 # =====================================================
