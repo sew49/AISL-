@@ -12,8 +12,9 @@ import os
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# Import Staff and Holiday from ..app as required
 try:
-    from app import db, Staff, LeaveRequest, Holiday  # type: ignore
+    from ..app import db, Staff, LeaveRequest, Holiday
 except ImportError:
     # Fallback for module not found
     import importlib.util
@@ -35,6 +36,18 @@ def calculate_fiscal_year(input_date):
         return f"{input_date.year}/{input_date.year + 1}"
     else:
         return f"{input_date.year - 1}/{input_date.year}"
+
+
+def calculate_fiscal_year_int(input_date):
+    """
+    Calculate fiscal year as integer based on October 1st Fiscal Year.
+    If month >= 10 (October onwards), fiscal year = year + 1
+    Otherwise, fiscal year = year
+    """
+    if input_date.month >= 10:
+        return input_date.year + 1
+    else:
+        return input_date.year
 
 
 # =====================================================
@@ -107,3 +120,106 @@ admin_bp = Blueprint('admin', __name__)
 
 # Note: The standalone admin routes in main.py take precedence
 # This blueprint is kept for reference but is NOT registered
+
+
+@admin_bp.route('/admin/add_manual_leave', methods=['GET', 'POST'])
+def add_manual_leave():
+    """
+    Add manual leave entry via form.
+    Uses October 1st Fiscal Year logic:
+    - if start_date.month >= 10, fiscal_year = start_date.year + 1
+    - otherwise fiscal_year = start_date.year
+    Calculates actual_days by excluding weekends and holidays from Holiday table.
+    """
+    from ..app import db, Staff, LeaveRequest, Holiday
+    
+    if not session.get('admin_logged_in'):
+        return redirect(url_for('admin_login'))
+    
+    if request.method == 'GET':
+        employees = Staff.query.filter_by(is_active=True).order_by(Staff.employee_code.asc()).all()
+        return render_template('admin/add_manual_leave.html', employees=employees)
+    
+    # POST - Handle form submission
+    try:
+        staff_id = request.form.get('staff_id', type=int)
+        start_date_str = request.form.get('start_date')
+        end_date_str = request.form.get('end_date')
+        leave_type = request.form.get('leave_type')
+        reason = request.form.get('reason', '') or 'Manual Entry'
+        
+        if not staff_id:
+            return render_template('admin/add_manual_leave.html', 
+                                employees=Staff.query.filter_by(is_active=True).order_by(Staff.employee_code.asc()).all(),
+                                error='Please select an employee')
+        
+        if not start_date_str or not end_date_str:
+            return render_template('admin/add_manual_leave.html', 
+                                employees=Staff.query.filter_by(is_active=True).order_by(Staff.employee_code.asc()).all(),
+                                error='Please select start and end dates')
+        
+        if not leave_type:
+            return render_template('admin/add_manual_leave.html', 
+                                employees=Staff.query.filter_by(is_active=True).order_by(Staff.employee_code.asc()).all(),
+                                error='Please select leave type')
+        
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        
+        if end_date < start_date:
+            return render_template('admin/add_manual_leave.html', 
+                                employees=Staff.query.filter_by(is_active=True).order_by(Staff.employee_code.asc()).all(),
+                                error='End date must be after start date')
+        
+        # Calculate actual days excluding weekends and holidays
+        actual_days = calculate_actual_leave_days(start_date, end_date)
+        
+        # Calculate fiscal year using October 1st logic
+        if start_date.month >= 10:
+            fiscal_year = start_date.year + 1
+        else:
+            fiscal_year = start_date.year
+        
+        staff_member = Staff.query.get(staff_id)
+        if not staff_member:
+            return render_template('admin/add_manual_leave.html', 
+                                employees=Staff.query.filter_by(is_active=True).order_by(Staff.employee_code.asc()).all(),
+                                error='Staff member not found')
+        
+        # Normalize leave type
+        if leave_type == 'Annual Leave':
+            leave_type = 'Annual'
+        
+        # Create the leave request
+        new_request = LeaveRequest(
+            staff_id=staff_id,
+            leave_type=leave_type,
+            start_date=start_date,
+            end_date=end_date,
+            total_days=int(actual_days) if actual_days == int(actual_days) else actual_days,
+            reason=reason,
+            status='Approved',
+            approved_date=datetime.utcnow(),
+            fiscal_year=fiscal_year
+        )
+        
+        db.session.add(new_request)
+        
+        # Deduct from leave balance
+        if leave_type == 'Annual':
+            staff_member.leave_balance = max(0, staff_member.leave_balance - actual_days)
+        elif leave_type == 'Sick':
+            staff_member.sick_leave_balance = max(0, getattr(staff_member, 'sick_leave_balance', 7) - actual_days)
+        
+        db.session.commit()
+        
+        return render_template('admin/add_manual_leave.html', 
+                            employees=Staff.query.filter_by(is_active=True).order_by(Staff.employee_code.asc()).all(),
+                            success=f'Successfully added leave for {staff_member.first_name} {staff_member.last_name}. Duration: {actual_days} days (Fiscal Year: {fiscal_year})')
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return render_template('admin/add_manual_leave.html', 
+                            employees=Staff.query.filter_by(is_active=True).order_by(Staff.employee_code.asc()).all(),
+                            error=f'Error: {str(e)}')

@@ -148,9 +148,21 @@ class LeaveRequest(db.Model):
     approved_by = db.Column(db.Integer)
     approved_date = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    fiscal_year = db.Column(db.Integer, nullable=True)  # Fiscal year for tracking 2021-2025 leave history
     
     # Define relationship using string reference
     staff = db.relationship('Staff', backref=db.backref('leave_requests', lazy='dynamic'))
+    
+    @staticmethod
+    def get_fiscal_year(date):
+        """
+        Calculate fiscal year based on date.
+        If month is 10 (October), 11 (November), or 12 (December), return date.year + 1.
+        Otherwise, return date.year.
+        """
+        if date.month in (10, 11, 12):
+            return date.year + 1
+        return date.year
     
     def to_dict(self):
         staff_name = None
@@ -169,6 +181,24 @@ class LeaveRequest(db.Model):
             'reason': self.reason,
             'status': self.status,
             'approved_by': self.approved_by,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'fiscal_year': self.fiscal_year
+        }
+
+
+class Holiday(db.Model):
+    __tablename__ = 'holidays'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    holiday_name = db.Column(db.String(100), nullable=False)
+    holiday_date = db.Column(db.Date, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'holiday_name': self.holiday_name,
+            'holiday_date': self.holiday_date.isoformat() if self.holiday_date else None,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
 

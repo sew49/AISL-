@@ -181,9 +181,21 @@ class LeaveRequest(db.Model):
     ApprovedBy = db.Column(db.Integer, db.ForeignKey('employees.EmpID'))
     ApprovedDate = db.Column(db.DateTime)
     RequestedAt = db.Column(db.DateTime, default=datetime.utcnow)
+    FiscalYear = db.Column(db.Integer, nullable=True)  # Fiscal year for tracking 2021-2025 leave history
     
     employee = db.relationship('Employee', foreign_keys=[EmpID], backref='leave_requests')
     approver = db.relationship('Employee', foreign_keys=[ApprovedBy])
+    
+    @staticmethod
+    def get_fiscal_year(p_date):
+        """
+        Calculate fiscal year based on date.
+        If month is 10 (October), 11 (November), or 12 (December), return date.year + 1.
+        Otherwise, return date.year.
+        """
+        if p_date.month in (10, 11, 12):
+            return p_date.year + 1
+        return p_date.year
     
     def to_dict(self):
         return {
@@ -198,7 +210,8 @@ class LeaveRequest(db.Model):
             'status': self.Status,
             'approved_by': self.ApprovedBy,
             'approved_date': self.ApprovedDate.isoformat() if self.ApprovedDate else None,
-            'requested_at': self.RequestedAt.isoformat() if self.RequestedAt else None
+            'requested_at': self.RequestedAt.isoformat() if self.RequestedAt else None,
+            'fiscal_year': self.FiscalYear
         }
 
 
@@ -511,6 +524,12 @@ print(">>> Loading Staff Routes <<<")
 from routes.staff_routes import staff_bp
 app.register_blueprint(staff_bp)
 print(">>> Staff Routes Registered Successfully <<<\n")
+
+# Load Admin routes
+print(">>> Loading Admin Routes <<<")
+from routes.admin_routes import admin_bp
+app.register_blueprint(admin_bp)
+print(">>> Admin Routes Registered Successfully <<<\n")
 
 
 # =====================================================
