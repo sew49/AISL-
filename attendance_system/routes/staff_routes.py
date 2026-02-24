@@ -55,10 +55,26 @@ def create_attendance():
     """Staff clock in"""
     from flask import current_app
     db = current_app.db
+    LeaveRequest = current_app.LeaveRequest
     
     data = request.get_json()
     
     work_date = datetime.strptime(data.get('work_date'), '%Y-%m-%d').date()
+    emp_id = data.get('emp_id')
+    
+    # Check if employee has an approved leave request for this date
+    leave_check = LeaveRequest.query.filter(
+        LeaveRequest.EmpID == emp_id,
+        LeaveRequest.StartDate <= work_date,
+        LeaveRequest.EndDate >= work_date,
+        LeaveRequest.Status == 'Approved'
+    ).first()
+    
+    if leave_check:
+        return jsonify({
+            'success': False,
+            'error': 'Access Denied: You are currently on an approved leave.'
+        }), 403
     
     if work_date.weekday() == 6:  # Sunday
         return jsonify({
