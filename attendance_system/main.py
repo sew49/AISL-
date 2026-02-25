@@ -393,6 +393,86 @@ def manage_leaves():
                             name_map={},
                             error=str(e))
 
+# Export Leave Summary to CSV
+@app.route('/export_leave_summary')
+def export_leave_summary():
+    """Export yearly leave summary to CSV"""
+    if not session.get('admin_logged_in'):
+        return redirect(url_for('admin_login'))
+    
+    try:
+        # Get all active employees
+        employees = Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all()
+        
+        # Get all approved leave requests
+        historical_leaves = LeaveRequest.query.filter_by(Status='Approved').order_by(LeaveRequest.StartDate.desc()).all()
+        
+        # Create name map
+        staff_list = Employee.query.all()
+        name_map = {s.EmpID: f"{s.FirstName} {s.LastName}" for s in staff_list}
+        
+        # Target years
+        target_years = [2021, 2022, 2023, 2024, 2025, 2026]
+        
+        # Build yearly stats
+        yearly_stats = []
+        for emp in employees:
+            emp_id = emp.EmpID
+            yearly_totals = {year: 0.0 for year in target_years}
+            
+            for leave in historical_leaves:
+                if leave.EmpID == emp_id and leave.StartDate:
+                    # Calculate fiscal year (October 1st start)
+                    if leave.StartDate.month >= 10:
+                        year = leave.StartDate.year + 1
+                    else:
+                        year = leave.StartDate.year
+                    
+                    if year in target_years:
+                        yearly_totals[year] += float(leave.TotalDays) if leave.TotalDays else 0.0
+            
+            yearly_stats.append({
+                'emp_id': emp_id,
+                'full_name': name_map.get(emp_id, f"{emp.FirstName} {emp.LastName}"),
+                'years': yearly_totals
+            })
+        
+        # Generate CSV
+        import csv
+        from io import StringIO
+        
+        output = StringIO()
+        writer = csv.writer(output)
+        
+        # Header row
+        writer.writerow(['Employee ID', 'Staff Name', '2021', '2022', '2023', '2024', '2025', '2026'])
+        
+        # Data rows
+        for row in yearly_stats:
+            writer.writerow([
+                row['emp_id'],
+                row['full_name'],
+                row['years'].get(2021, 0),
+                row['years'].get(2022, 0),
+                row['years'].get(2023, 0),
+                row['years'].get(2024, 0),
+                row['years'].get(2025, 0),
+                row['years'].get(2026, 0)
+            ])
+        
+        # Return as downloadable file
+        output.seek(0)
+        return make_response(output.getvalue(), 200, {
+            'Content-Type': 'text/csv',
+            'Content-Disposition': 'attachment; filename=leave_summary.csv'
+        })
+    
+    except Exception as e:
+        print(f"❌ ERROR exporting CSV: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return redirect(url_for('admin_dashboard'))
+
 # Admin Dashboard route (standalone)
 @app.route('/admin/dashboard')
 def admin_dashboard():

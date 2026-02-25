@@ -9,7 +9,7 @@ app.secret_key = os.getenv('SECRET_KEY') or 'dev_fallback_key_change_in_producti
 
 # Continue with other imports after app and secret_key are defined
 from datetime import datetime, date, time, timedelta
-from flask import render_template, request, jsonify, redirect, url_for, session
+from flask import render_template, request, jsonify, redirect, url_for, session, make_response
 from flask_sqlalchemy import SQLAlchemy
 
 # =====================================================
@@ -683,6 +683,86 @@ def admin_input():
     if not session.get('admin_logged_in'):
         return redirect(url_for('admin_login'))
     return render_template('admin_input.html')
+
+
+# Export Leave Summary to CSV
+@app.route('/export_leave_summary')
+def export_leave_summary():
+    """Export yearly leave summary to CSV"""
+    if not session.get('admin_logged_in'):
+        return redirect(url_for('admin_login'))
+    
+    try:
+        # Get all active employees
+        employees = Staff.query.filter_by(is_active=True).order_by(Staff.employee_code.asc()).all()
+        
+        # Get all approved leave requests
+        historical_leaves = LeaveRequest.query.filter_by(status='Approved').order_by(LeaveRequest.start_date.desc()).all()
+        
+        # Create name map
+        staff_lookup = {s.id: f"{s.first_name} {s.last_name}" for s in employees}
+        
+        # Target years
+        target_years = [2021, 2022, 2023, 2024, 2025, 2026]
+        
+        # Build yearly stats
+        yearly_stats = []
+        for emp in employees:
+            emp_id = emp.id
+            yearly_totals = {year: 0.0 for year in target_years}
+            
+            for leave in historical_leaves:
+                if leave.staff_id == emp_id and leave.start_date:
+                    # Calculate fiscal year (October 1st start)
+                    if leave.start_date.month >= 10:
+                        year = leave.start_date.year + 1
+                    else:
+                        year = leave.start_date.year
+                    
+                    if year in target_years:
+                        yearly_totals[year] += float(leave.total_days) if leave.total_days else 0.0
+            
+            yearly_stats.append({
+                'emp_id': emp_id,
+                'full_name': staff_lookup.get(emp_id, f"{emp.first_name} {emp.last_name}"),
+                'years': yearly_totals
+            })
+        
+        # Generate CSV
+        import csv
+        from io import StringIO
+        
+        output = StringIO()
+        writer = csv.writer(output)
+        
+        # Header row
+        writer.writerow(['Employee ID', 'Staff Name', '2021', '2022', '2023', '2024', '2025', '2026'])
+        
+        # Data rows
+        for row in yearly_stats:
+            writer.writerow([
+                row['emp_id'],
+                row['full_name'],
+                row['years'].get(2021, 0),
+                row['years'].get(2022, 0),
+                row['years'].get(2023, 0),
+                row['years'].get(2024, 0),
+                row['years'].get(2025, 0),
+                row['years'].get(2026, 0)
+            ])
+        
+        # Return as downloadable file
+        output.seek(0)
+        return make_response(output.getvalue(), 200, {
+            'Content-Type': 'text/csv',
+            'Content-Disposition': 'attachment; filename=leave_summary.csv'
+        })
+    
+    except Exception as e:
+        print(f"❌ ERROR exporting CSV: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return redirect(url_for('admin_dashboard'))
 
 
 @app.route('/admin/leave')
