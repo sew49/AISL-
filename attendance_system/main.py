@@ -473,7 +473,13 @@ def admin_dashboard():
             # Calculate totals from historical leaves for this employee
             for leave in historical_leaves:
                 if leave.EmpID == emp_id and leave.StartDate:
-                    year = leave.StartDate.year
+                    # Calculate fiscal year (October 1st start)
+                    # If month is October(10), November(11), or December(12), fiscal year = year + 1
+                    if leave.StartDate.month >= 10:
+                        year = leave.StartDate.year + 1
+                    else:
+                        year = leave.StartDate.year
+                    
                     if year in target_years:
                         yearly_totals[year] += float(leave.TotalDays) if leave.TotalDays else 0.0
             
