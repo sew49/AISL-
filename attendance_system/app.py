@@ -208,11 +208,100 @@ class Holiday(db.Model):
 # =====================================================
 
 def calculate_leave_days(start_date, end_date):
-    """Calculate leave days excluding Sundays"""
+    """Calculate leave days excluding Sundays and Kenyan public holidays"""
+    # Kenyan public holidays for 2021-2026
+    kenyan_holidays = {
+        # 2021
+        date(2021, 1, 1),   # New Year's Day
+        date(2021, 3, 12),  # Eid al-Fitr (approximate)
+        date(2021, 4, 2),   # Good Friday
+        date(2021, 4, 5),    # Easter Monday
+        date(2021, 5, 1),   # Labour Day
+        date(2021, 6, 1),   # Madaraka Day
+        date(2021, 7, 10),  # Eid al-Adha (approximate)
+        date(2021, 8, 20),  # Utamaduni Day
+        date(2021, 10, 10), # Huduma Day
+        date(2021, 10, 20), # Mashujaa Day
+        date(2021, 12, 12), # Jamhuri Day
+        date(2021, 12, 25), # Christmas Day
+        date(2021, 12, 26), # Boxing Day
+        
+        # 2022
+        date(2022, 1, 1),   # New Year's Day
+        date(2022, 3, 18),  # Good Friday
+        date(2022, 4, 15),  # Easter Monday
+        date(2022, 5, 1),   # Labour Day
+        date(2022, 6, 1),   # Madaraka Day
+        date(2022, 7, 9),   # Eid al-Adha
+        date(2022, 8, 20),  # Utamaduni Day
+        date(2022, 10, 10), # Huduma Day
+        date(2022, 10, 20), # Mashujaa Day
+        date(2022, 12, 12), # Jamhuri Day
+        date(2022, 12, 25), # Christmas Day
+        date(2022, 12, 26), # Boxing Day
+        
+        # 2023
+        date(2023, 1, 1),   # New Year's Day
+        date(2023, 4, 7),   # Good Friday
+        date(2023, 4, 10),  # Easter Monday
+        date(2023, 5, 1),   # Labour Day
+        date(2023, 6, 1),   # Madaraka Day
+        date(2023, 6, 28),  # Eid al-Adha
+        date(2023, 8, 20),  # Utamaduni Day
+        date(2023, 10, 10), # Huduma Day
+        date(2023, 10, 20), # Mashujaa Day
+        date(2023, 12, 12), # Jamhuri Day
+        date(2023, 12, 25), # Christmas Day
+        date(2023, 12, 26), # Boxing Day
+        
+        # 2024
+        date(2024, 1, 1),   # New Year's Day
+        date(2024, 3, 29),  # Good Friday
+        date(2024, 4, 1),   # Easter Monday
+        date(2024, 5, 1),   # Labour Day
+        date(2024, 6, 1),   # Madaraka Day
+        date(2024, 6, 16),  # Eid al-Adha
+        date(2024, 8, 20),  # Utamaduni Day
+        date(2024, 10, 10), # Huduma Day
+        date(2024, 10, 20), # Mashujaa Day
+        date(2024, 12, 12), # Jamhuri Day
+        date(2024, 12, 25), # Christmas Day
+        date(2024, 12, 26), # Boxing Day
+        
+        # 2025
+        date(2025, 1, 1),   # New Year's Day
+        date(2025, 4, 18),  # Good Friday
+        date(2025, 4, 21),  # Easter Monday
+        date(2025, 5, 1),   # Labour Day
+        date(2025, 6, 1),   # Madaraka Day
+        date(2025, 6, 6),   # Eid al-Adha
+        date(2025, 8, 20),  # Utamaduni Day
+        date(2025, 10, 10), # Huduma Day
+        date(2025, 10, 20), # Mashujaa Day
+        date(2025, 12, 12), # Jamhuri Day
+        date(2025, 12, 25), # Christmas Day
+        date(2025, 12, 26), # Boxing Day
+        
+        # 2026
+        date(2026, 1, 1),   # New Year's Day
+        date(2026, 4, 3),   # Good Friday
+        date(2026, 4, 6),   # Easter Monday
+        date(2026, 5, 1),   # Labour Day
+        date(2026, 6, 1),   # Madaraka Day
+        date(2026, 6, 27),  # Eid al-Adha
+        date(2026, 8, 20),  # Utamaduni Day
+        date(2026, 10, 10), # Huduma Day
+        date(2026, 10, 20), # Mashujaa Day
+        date(2026, 12, 12), # Jamhuri Day
+        date(2026, 12, 25), # Christmas Day
+        date(2026, 12, 26), # Boxing Day
+    }
+    
     total_days = 0
     current = start_date
     while current <= end_date:
-        if current.weekday() != 6:
+        # Exclude Sundays (weekday 6) and Kenyan public holidays
+        if current.weekday() != 6 and current not in kenyan_holidays:
             total_days += 1
         current = date.fromordinal(current.toordinal() + 1)
     return total_days
