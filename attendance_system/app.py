@@ -420,6 +420,27 @@ def admin_dashboard():
         # Get historical leaves (all approved leaves for reference)
         historical_leaves = LeaveRequest.query.filter_by(status='Approved').order_by(LeaveRequest.start_date.desc()).all()
         
+        # Create yearly summary - group approved leaves by employee and year
+        # Create a lookup dictionary for staff names
+        staff_lookup = {s.id: f"{s.first_name} {s.last_name}" for s in staff_members}
+        
+        yearly_summary = {}
+        target_years = [2021, 2022, 2023, 2024, 2025, 2026]
+        
+        for leave in historical_leaves:
+            staff_id = leave.staff_id
+            if staff_id not in yearly_summary:
+                yearly_summary[staff_id] = {
+                    'name': staff_lookup.get(staff_id, 'Unknown'),
+                    'years': {year: 0 for year in target_years}
+                }
+            
+            # Extract year from start_date
+            if leave.start_date:
+                year = leave.start_date.year
+                if year in target_years:
+                    yearly_summary[staff_id]['years'][year] += leave.total_days if leave.total_days else 0
+        
         # Get recent attendance records (last 24 hours)
         yesterday = datetime.now() - timedelta(days=1)
         recent_attendance = Attendance.query.filter(Attendance.created_at >= yesterday).order_by(Attendance.created_at.desc()).all()
@@ -436,7 +457,8 @@ def admin_dashboard():
                              approved_leaves=approved_leaves,
                              all_approved_leaves=all_approved_leaves,
                              staff_ids_on_leave_today=staff_ids_on_leave_today,
-                             upcoming_leaves=upcoming_leaves)
+                             upcoming_leaves=upcoming_leaves,
+                             yearly_summary=yearly_summary)
     except Exception as e:
         print(f"❌ ERROR in admin_dashboard: {str(e)}")
         return render_template('admin/dashboard.html', 

@@ -370,18 +370,19 @@
                 <tbody>
                     {% for s in staff %}
                     {% set emp_id = s.id %}
-                    {% set yearly = leave_summary[emp_id] if leave_summary[emp_id] else {} %}
+                    {% set yearly = yearly_summary[emp_id] if yearly_summary[emp_id] else {} %}
+                    {% set years_data = yearly['years'] if yearly['years'] else {} %}
                     <tr class="hover:bg-gray-50">
                         <td class="p-3 border font-medium">
-                            {{ s.first_name }} {{ s.last_name }}
+                            {{ s.id }} - {{ s.first_name }} {{ s.last_name }}
                             <span class="text-gray-500 text-xs">({{ s.employee_code }})</span>
                         </td>
-                        <td class="p-3 border text-center">{{ yearly[2021] if yearly[2021] else '-' }}</td>
-                        <td class="p-3 border text-center">{{ yearly[2022] if yearly[2022] else '-' }}</td>
-                        <td class="p-3 border text-center">{{ yearly[2023] if yearly[2023] else '-' }}</td>
-                        <td class="p-3 border text-center">{{ yearly[2024] if yearly[2024] else '-' }}</td>
-                        <td class="p-3 border text-center">{{ yearly[2025] if yearly[2025] else '-' }}</td>
-                        <td class="p-3 border text-center">{{ yearly[2026] if yearly[2026] else '-' }}</td>
+                        <td class="p-3 border text-center">{{ years_data[2021] if years_data[2021] else '-' }}</td>
+                        <td class="p-3 border text-center">{{ years_data[2022] if years_data[2022] else '-' }}</td>
+                        <td class="p-3 border text-center">{{ years_data[2023] if years_data[2023] else '-' }}</td>
+                        <td class="p-3 border text-center">{{ years_data[2024] if years_data[2024] else '-' }}</td>
+                        <td class="p-3 border text-center">{{ years_data[2025] if years_data[2025] else '-' }}</td>
+                        <td class="p-3 border text-center">{{ years_data[2026] if years_data[2026] else '-' }}</td>
                     </tr>
                     {% else %}
                     <tr>
