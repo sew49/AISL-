@@ -196,7 +196,7 @@ def add_manual_leave():
             leave_type=leave_type,
             start_date=start_date,
             end_date=end_date,
-            total_days=int(actual_days) if actual_days == int(actual_days) else actual_days,
+            total_days=actual_days,
             reason=reason,
             status='Approved',
             approved_date=datetime.utcnow(),
