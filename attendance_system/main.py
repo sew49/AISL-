@@ -387,11 +387,8 @@ def admin_dashboard():
             LeaveRequest.StartDate > today
         ).order_by(LeaveRequest.StartDate.asc()).all()
         
-        # Get historical leaves (2021-2025)
-        historical_leaves = LeaveRequest.query.filter(
-            LeaveRequest.Status == 'Approved',
-            LeaveRequest.FiscalYear.in_([2021, 2022, 2023, 2024, 2025])
-        ).order_by(LeaveRequest.StartDate.desc()).all()
+        # Get historical leaves
+        historical_leaves = LeaveRequest.query.filter_by(Status='Approved').order_by(LeaveRequest.StartDate.desc()).all()
         
         print(f"📅 Today: {today}")
         print(f"👥 Employees on leave today: {emp_ids_on_leave}")
