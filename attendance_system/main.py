@@ -467,15 +467,15 @@ def admin_dashboard():
         
         for emp in employees:
             emp_id = emp.EmpID
-            # Initialize yearly totals for this employee
-            yearly_totals = {year: 0 for year in target_years}
+            # Initialize yearly totals for this employee as floats
+            yearly_totals = {year: 0.0 for year in target_years}
             
             # Calculate totals from historical leaves for this employee
             for leave in historical_leaves:
                 if leave.EmpID == emp_id and leave.StartDate:
                     year = leave.StartDate.year
                     if year in target_years:
-                        yearly_totals[year] += float(leave.TotalDays) if leave.TotalDays else 0
+                        yearly_totals[year] += float(leave.TotalDays) if leave.TotalDays else 0.0
             
             # Build the row with Employee ID, Full Name (using name_map), and yearly totals
             row = {
