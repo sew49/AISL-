@@ -420,10 +420,11 @@ def admin_dashboard():
         # Get historical leaves (all approved leaves for reference)
         historical_leaves = LeaveRequest.query.filter_by(status='Approved').order_by(LeaveRequest.start_date.desc()).all()
         
-        # Create yearly summary - group approved leaves by employee and year
+        # Create yearly stats - group approved leaves by employee and year
         # Create a lookup dictionary for staff names
         staff_lookup = {s.id: f"{s.first_name} {s.last_name}" for s in staff_members}
         
+        # Build yearly_summary dict first
         yearly_summary = {}
         target_years = [2021, 2022, 2023, 2024, 2025, 2026]
         
@@ -440,6 +441,15 @@ def admin_dashboard():
                 year = leave.start_date.year
                 if year in target_years:
                     yearly_summary[staff_id]['years'][year] += leave.total_days if leave.total_days else 0
+        
+        # Convert yearly_summary dict to yearly_stats list for the template
+        yearly_stats = []
+        for staff_id, data in yearly_summary.items():
+            yearly_stats.append({
+                'emp_id': staff_id,
+                'full_name': data['name'],
+                'years': data['years']
+            })
         
         # Get recent attendance records (last 24 hours)
         yesterday = datetime.now() - timedelta(days=1)
@@ -458,7 +468,7 @@ def admin_dashboard():
                              all_approved_leaves=all_approved_leaves,
                              staff_ids_on_leave_today=staff_ids_on_leave_today,
                              upcoming_leaves=upcoming_leaves,
-                             yearly_summary=yearly_summary)
+                             yearly_stats=yearly_stats)
     except Exception as e:
         print(f"❌ ERROR in admin_dashboard: {str(e)}")
         return render_template('admin/dashboard.html', 
