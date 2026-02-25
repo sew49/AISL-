@@ -347,10 +347,20 @@ def admin_dashboard():
     
     try:
         today = date.today()
+        
+        # Debug: Print database connection info
+        print(f"🔍 Database connection: {SQLALCHEMY_DATABASE_URI[:30]}...")
+        
         employees = Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all()
+        print(f"👥 Active employees found: {len(employees)}")
         
         # Get today's attendance records
-        attendance_today = Attendance.query.filter_by(WorkDate=today).all()
+        attendance = Attendance.query.filter_by(WorkDate=today).order_by(Attendance.AttendanceID.desc()).all()
+        print(f"📋 Today's attendance records: {len(attendance)}")
+        
+        # Debug: Also get all attendance to see if there are any records at all
+        all_attendance_count = Attendance.query.count()
+        print(f"📊 Total attendance records in database: {all_attendance_count}")
         
         # Get approved leaves for today
         approved_leaves_today = LeaveRequest.query.filter(
@@ -387,7 +397,7 @@ def admin_dashboard():
             LeaveRequest.StartDate > today
         ).order_by(LeaveRequest.StartDate.asc()).all()
         
-        # Get historical leaves
+        # Get historical leaves (Status='Approved' with capital A)
         historical_leaves = LeaveRequest.query.filter_by(Status='Approved').order_by(LeaveRequest.StartDate.desc()).all()
         
         print(f"📅 Today: {today}")
@@ -396,7 +406,7 @@ def admin_dashboard():
         
         return render_template('admin/dashboard.html',
                             staff=employees,
-                            attendance=attendance_today,
+                            attendance=attendance,
                             pending_leaves=pending_leaves,
                             today=today,
                             employee_summary=[],

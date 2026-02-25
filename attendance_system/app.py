@@ -417,9 +417,17 @@ def admin_dashboard():
             LeaveRequest.start_date > today
         ).order_by(LeaveRequest.start_date.asc()).all()
         
+        # Get historical leaves (all approved leaves for reference)
+        historical_leaves = LeaveRequest.query.filter_by(status='Approved').order_by(LeaveRequest.start_date.desc()).all()
+        
+        # Get recent attendance records (last 24 hours)
+        yesterday = datetime.now() - timedelta(days=1)
+        recent_attendance = Attendance.query.filter(Attendance.created_at >= yesterday).order_by(Attendance.created_at.desc()).all()
+        
         return render_template('admin/dashboard.html', 
                              staff=staff_members,
-                             attendance=today_attendance,
+                             attendance=recent_attendance,
+                             historical_leaves=historical_leaves,
                              pending_leaves=pending_leaves,
                              today=today,
                              employee_summary=employee_summary,
