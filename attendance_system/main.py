@@ -400,25 +400,43 @@ def admin_dashboard():
         # Get historical leaves (Status='Approved' with capital A)
         historical_leaves = LeaveRequest.query.filter_by(Status='Approved').order_by(LeaveRequest.StartDate.desc()).all()
         
-        # Create yearly leave summary per employee
-        leave_summary = {}
+        # Create staff lookup dictionary: staff_id -> {'id': id, 'first_name': first_name, 'last_name': last_name}
+        staff_lookup = {}
+        for emp in employees:
+            staff_lookup[emp.EmpID] = {
+                'id': emp.EmpID,
+                'first_name': emp.FirstName,
+                'last_name': emp.LastName
+            }
+        
+        # Create yearly stats object: each row contains Employee ID, Full Name, and total days for each year (2021-2026)
+        yearly_stats = []
         target_years = [2021, 2022, 2023, 2024, 2025, 2026]
         
-        for leave in historical_leaves:
-            emp_id = leave.EmpID
-            if emp_id not in leave_summary:
-                leave_summary[emp_id] = {year: 0 for year in target_years}
+        for emp in employees:
+            emp_id = emp.EmpID
+            # Initialize yearly totals for this employee
+            yearly_totals = {year: 0 for year in target_years}
             
-            # Extract year from start_date
-            if leave.StartDate:
-                year = leave.StartDate.year
-                if year in target_years:
-                    leave_summary[emp_id][year] += float(leave.TotalDays) if leave.TotalDays else 0
+            # Calculate totals from historical leaves for this employee
+            for leave in historical_leaves:
+                if leave.EmpID == emp_id and leave.StartDate:
+                    year = leave.StartDate.year
+                    if year in target_years:
+                        yearly_totals[year] += float(leave.TotalDays) if leave.TotalDays else 0
+            
+            # Build the row with Employee ID, Full Name, and yearly totals
+            row = {
+                'emp_id': emp_id,
+                'full_name': f"{emp.FirstName} {emp.LastName}",
+                'years': yearly_totals
+            }
+            yearly_stats.append(row)
         
         print(f"📅 Today: {today}")
         print(f"👥 Employees on leave today: {emp_ids_on_leave}")
         print(f"📋 Historical leaves found: {len(historical_leaves)}")
-        print(f"📊 Leave summary computed for {len(leave_summary)} employees")
+        print(f"📊 Yearly stats computed for {len(yearly_stats)} employees")
         
         return render_template('admin/dashboard.html',
                             staff=employees,
@@ -434,7 +452,8 @@ def admin_dashboard():
                             staff_ids_on_leave_today=list(emp_ids_on_leave),
                             upcoming_leaves=upcoming_leaves,
                             historical_leaves=historical_leaves,
-                            leave_summary=leave_summary)
+                            staff_lookup=staff_lookup,
+                            yearly_stats=yearly_stats)
     except Exception as e:
         print(f"❌ ERROR in admin_dashboard: {str(e)}")
         import traceback
