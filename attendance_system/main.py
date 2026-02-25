@@ -400,14 +400,11 @@ def admin_dashboard():
         # Get historical leaves (Status='Approved' with capital A)
         historical_leaves = LeaveRequest.query.filter_by(Status='Approved').order_by(LeaveRequest.StartDate.desc()).all()
         
-        # Create staff lookup dictionary: staff_id -> {'id': id, 'first_name': first_name, 'last_name': last_name}
-        staff_lookup = {}
-        for emp in employees:
-            staff_lookup[emp.EmpID] = {
-                'id': emp.EmpID,
-                'first_name': emp.FirstName,
-                'last_name': emp.LastName
-            }
+        # Fetch all staff for name mapping
+        staff_list = Employee.query.all()
+        
+        # Create name map: staff_id -> "first_name last_name"
+        name_map = {s.EmpID: f"{s.FirstName} {s.LastName}" for s in staff_list}
         
         # Create yearly stats object: each row contains Employee ID, Full Name, and total days for each year (2021-2026)
         yearly_stats = []
@@ -425,10 +422,10 @@ def admin_dashboard():
                     if year in target_years:
                         yearly_totals[year] += float(leave.TotalDays) if leave.TotalDays else 0
             
-            # Build the row with Employee ID, Full Name, and yearly totals
+            # Build the row with Employee ID, Full Name (using name_map), and yearly totals
             row = {
                 'emp_id': emp_id,
-                'full_name': f"{emp.FirstName} {emp.LastName}",
+                'full_name': name_map.get(emp_id, f"{emp.FirstName} {emp.LastName}"),
                 'years': yearly_totals
             }
             yearly_stats.append(row)
