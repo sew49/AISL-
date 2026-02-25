@@ -338,6 +338,61 @@ def admin_logout():
     session.pop('admin_logged_in', None)
     return redirect(url_for('admin_login'))
 
+# Delete Leave route (standalone)
+@app.route('/delete_leave/<int:leave_id>', methods=['POST', 'GET'])
+def delete_leave(leave_id):
+    """Delete a leave request record"""
+    if not session.get('admin_logged_in'):
+        return redirect(url_for('admin_login'))
+    
+    try:
+        leave_request = LeaveRequest.query.get(leave_id)
+        if not leave_request:
+            return redirect(url_for('admin_dashboard'))
+        
+        # Get employee name before deletion for the message
+        employee = Employee.query.get(leave_request.EmpID)
+        employee_name = f"{employee.FirstName} {employee.LastName}" if employee else "Unknown"
+        
+        # Delete the leave request
+        db.session.delete(leave_request)
+        db.session.commit()
+        
+        print(f"✅ Deleted leave request {leave_id} for {employee_name}")
+        
+        return redirect(url_for('admin_dashboard'))
+    
+    except Exception as e:
+        print(f"❌ ERROR deleting leave: {str(e)}")
+        db.session.rollback()
+        return redirect(url_for('admin_dashboard'))
+
+# Manage Historical Leaves route (standalone)
+@app.route('/admin/manage-leaves')
+def manage_leaves():
+    """View and manage historical leave records"""
+    if not session.get('admin_logged_in'):
+        return redirect(url_for('admin_login'))
+    
+    try:
+        # Get all leave requests
+        all_leaves = LeaveRequest.query.order_by(LeaveRequest.StartDate.desc()).all()
+        
+        # Get all employees for name lookup
+        employees = Employee.query.all()
+        name_map = {e.EmpID: f"{e.FirstName} {e.LastName}" for e in employees}
+        
+        return render_template('admin/manage_leaves.html',
+                            leaves=all_leaves,
+                            name_map=name_map)
+    
+    except Exception as e:
+        print(f"❌ ERROR loading leaves: {str(e)}")
+        return render_template('admin/manage_leaves.html',
+                            leaves=[],
+                            name_map={},
+                            error=str(e))
+
 # Admin Dashboard route (standalone)
 @app.route('/admin/dashboard')
 def admin_dashboard():
@@ -449,7 +504,7 @@ def admin_dashboard():
                             staff_ids_on_leave_today=list(emp_ids_on_leave),
                             upcoming_leaves=upcoming_leaves,
                             historical_leaves=historical_leaves,
-                            staff_lookup=staff_lookup,
+                            staff_lookup=name_map,
                             yearly_stats=yearly_stats)
     except Exception as e:
         print(f"❌ ERROR in admin_dashboard: {str(e)}")
