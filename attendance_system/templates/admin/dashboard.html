@@ -377,12 +377,72 @@
                         <td class="p-3 border font-medium">
                             {{ row.full_name }}
                         </td>
-                        <td class="p-3 border text-center">{{ row.years[2021] if row.years[2021] else '-' }}</td>
-                        <td class="p-3 border text-center">{{ row.years[2022] if row.years[2022] else '-' }}</td>
-                        <td class="p-3 border text-center">{{ row.years[2023] if row.years[2023] else '-' }}</td>
-                        <td class="p-3 border text-center">{{ row.years[2024] if row.years[2024] else '-' }}</td>
-                        <td class="p-3 border text-center">{{ row.years[2025] if row.years[2025] else '-' }}</td>
-                        <td class="p-3 border text-center">{{ row.years[2026] if row.years[2026] else '-' }}</td>
+                        <td class="p-3 border text-center">
+                            {% if row.years[2021] %}
+                                {% if row.years[2021] == row.years[2021]|int %}
+                                    {{ row.years[2021]|int }}
+                                {% else %}
+                                    {{ row.years[2021] }}
+                                {% endif %}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td class="p-3 border text-center">
+                            {% if row.years[2022] %}
+                                {% if row.years[2022] == row.years[2022]|int %}
+                                    {{ row.years[2022]|int }}
+                                {% else %}
+                                    {{ row.years[2022] }}
+                                {% endif %}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td class="p-3 border text-center">
+                            {% if row.years[2023] %}
+                                {% if row.years[2023] == row.years[2023]|int %}
+                                    {{ row.years[2023]|int }}
+                                {% else %}
+                                    {{ row.years[2023] }}
+                                {% endif %}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td class="p-3 border text-center">
+                            {% if row.years[2024] %}
+                                {% if row.years[2024] == row.years[2024]|int %}
+                                    {{ row.years[2024]|int }}
+                                {% else %}
+                                    {{ row.years[2024] }}
+                                {% endif %}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td class="p-3 border text-center">
+                            {% if row.years[2025] %}
+                                {% if row.years[2025] == row.years[2025]|int %}
+                                    {{ row.years[2025]|int }}
+                                {% else %}
+                                    {{ row.years[2025] }}
+                                {% endif %}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td class="p-3 border text-center">
+                            {% if row.years[2026] %}
+                                {% if row.years[2026] == row.years[2026]|int %}
+                                    {{ row.years[2026]|int }}
+                                {% else %}
+                                    {{ row.years[2026] }}
+                                {% endif %}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
                     </tr>
                     {% else %}
                     <tr>
