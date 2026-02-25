@@ -529,9 +529,14 @@ def admin_dashboard():
                     'years': {year: 0 for year in target_years}
                 }
             
-            # Extract year from start_date
+            # Extract year from start_date and calculate fiscal year (October start)
+            # If month >= 10 (Oct, Nov, Dec), fiscal year = year + 1
             if leave.start_date:
-                year = leave.start_date.year
+                if leave.start_date.month >= 10:
+                    year = leave.start_date.year + 1
+                else:
+                    year = leave.start_date.year
+                
                 if year in target_years:
                     yearly_summary[staff_id]['years'][year] += leave.total_days if leave.total_days else 0
         
