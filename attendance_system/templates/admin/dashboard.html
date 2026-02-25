@@ -351,34 +351,41 @@
         </p>
     </section>
     
-    <!-- Historical Leave History (2021-2025) - Added at the very bottom -->
+    <!-- Historical Leave History (Yearly Summary) -->
     <div class="mt-8 bg-white p-6 rounded-lg shadow-md">
-        <h3 class="text-xl font-bold mb-4 text-blue-800">Historical Leave History (2021-2025)</h3>
+        <h3 class="text-xl font-bold mb-4 text-blue-800">Historical Leave Summary by Year</h3>
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
                 <thead>
                     <tr class="bg-blue-50 text-blue-900">
-                        <th class="p-3 border">Employee ID</th>
-                        <th class="p-3 border">Type</th>
-                        <th class="p-3 border">Start Date</th>
-                        <th class="p-3 border">End Date</th>
-                        <th class="p-3 border">Days</th>
-                        <th class="p-3 border">Fiscal Year</th>
+                        <th class="p-3 border">Employee</th>
+                        <th class="p-3 border">2021</th>
+                        <th class="p-3 border">2022</th>
+                        <th class="p-3 border">2023</th>
+                        <th class="p-3 border">2024</th>
+                        <th class="p-3 border">2025</th>
+                        <th class="p-3 border">2026</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for leave in historical_leaves %}
+                    {% for s in staff %}
+                    {% set emp_id = s.id %}
+                    {% set yearly = leave_summary[emp_id] if leave_summary[emp_id] else {} %}
                     <tr class="hover:bg-gray-50">
-                        <td class="p-3 border">{{ leave.staff_id }}</td>
-                        <td class="p-3 border">{{ leave.leave_type }}</td>
-                        <td class="p-3 border">{{ leave.start_date.strftime('%d/%m/%Y') }}</td>
-                        <td class="p-3 border">{{ leave.end_date.strftime('%d/%m/%Y') }}</td>
-                        <td class="p-3 border font-semibold text-blue-600">{{ leave.total_days }}</td>
-                        <td class="p-3 border">{{ leave.fiscal_year }}</td>
+                        <td class="p-3 border font-medium">
+                            {{ s.first_name }} {{ s.last_name }}
+                            <span class="text-gray-500 text-xs">({{ s.employee_code }})</span>
+                        </td>
+                        <td class="p-3 border text-center">{{ yearly[2021] if yearly[2021] else '-' }}</td>
+                        <td class="p-3 border text-center">{{ yearly[2022] if yearly[2022] else '-' }}</td>
+                        <td class="p-3 border text-center">{{ yearly[2023] if yearly[2023] else '-' }}</td>
+                        <td class="p-3 border text-center">{{ yearly[2024] if yearly[2024] else '-' }}</td>
+                        <td class="p-3 border text-center">{{ yearly[2025] if yearly[2025] else '-' }}</td>
+                        <td class="p-3 border text-center">{{ yearly[2026] if yearly[2026] else '-' }}</td>
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="6" class="p-4 text-center text-gray-500">No historical records found yet.</td>
+                        <td colspan="7" class="p-4 text-center text-gray-500">No staff records found.</td>
                     </tr>
                     {% endfor %}
                 </tbody>

@@ -400,9 +400,25 @@ def admin_dashboard():
         # Get historical leaves (Status='Approved' with capital A)
         historical_leaves = LeaveRequest.query.filter_by(Status='Approved').order_by(LeaveRequest.StartDate.desc()).all()
         
+        # Create yearly leave summary per employee
+        leave_summary = {}
+        target_years = [2021, 2022, 2023, 2024, 2025, 2026]
+        
+        for leave in historical_leaves:
+            emp_id = leave.EmpID
+            if emp_id not in leave_summary:
+                leave_summary[emp_id] = {year: 0 for year in target_years}
+            
+            # Extract year from start_date
+            if leave.StartDate:
+                year = leave.StartDate.year
+                if year in target_years:
+                    leave_summary[emp_id][year] += float(leave.TotalDays) if leave.TotalDays else 0
+        
         print(f"📅 Today: {today}")
         print(f"👥 Employees on leave today: {emp_ids_on_leave}")
         print(f"📋 Historical leaves found: {len(historical_leaves)}")
+        print(f"📊 Leave summary computed for {len(leave_summary)} employees")
         
         return render_template('admin/dashboard.html',
                             staff=employees,
@@ -417,7 +433,8 @@ def admin_dashboard():
                             all_approved_leaves=all_approved_leaves,
                             staff_ids_on_leave_today=list(emp_ids_on_leave),
                             upcoming_leaves=upcoming_leaves,
-                            historical_leaves=historical_leaves)
+                            historical_leaves=historical_leaves,
+                            leave_summary=leave_summary)
     except Exception as e:
         print(f"❌ ERROR in admin_dashboard: {str(e)}")
         import traceback
