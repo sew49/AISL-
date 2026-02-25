@@ -142,7 +142,7 @@ class LeaveRequest(db.Model):
     leave_type = db.Column(db.String(20), nullable=False)
     start_date = db.Column(db.Date, nullable=False)
     end_date = db.Column(db.Date, nullable=False)
-    total_days = db.Column(db.Integer, nullable=False)
+    total_days = db.Column(db.Float, nullable=False)
     reason = db.Column(db.Text)
     status = db.Column(db.String(20), default='Pending')
     approved_by = db.Column(db.Integer)
