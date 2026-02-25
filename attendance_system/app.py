@@ -302,7 +302,11 @@ def calculate_leave_days(start_date, end_date):
     while current <= end_date:
         # Exclude Sundays (weekday 6) and Kenyan public holidays
         if current.weekday() != 6 and current not in kenyan_holidays:
-            total_days += 1
+            # Saturday is half day (0.5), full days are weekdays 0-4
+            if current.weekday() == 5:  # Saturday
+                total_days += 0.5
+            else:  # Monday to Friday
+                total_days += 1
         current = date.fromordinal(current.toordinal() + 1)
     return total_days
 
