@@ -354,9 +354,9 @@ def admin_dashboard():
         employees = Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all()
         print(f"👥 Active employees found: {len(employees)}")
         
-        # Get today's attendance records
-        attendance = Attendance.query.filter_by(WorkDate=today).order_by(Attendance.AttendanceID.desc()).all()
-        print(f"📋 Today's attendance records: {len(attendance)}")
+        # Get today's attendance records (most recent 22)
+        attendance = Attendance.query.order_by(Attendance.AttendanceID.desc()).limit(22).all()
+        print(f"📋 Recent attendance records: {len(attendance)}")
         
         # Debug: Also get all attendance to see if there are any records at all
         all_attendance_count = Attendance.query.count()
