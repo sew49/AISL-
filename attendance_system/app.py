@@ -541,12 +541,39 @@ def admin_dashboard():
                     yearly_summary[staff_id]['years'][year] += leave.total_days if leave.total_days else 0
         
         # Convert yearly_summary dict to yearly_stats list for the template
+        # Separate Annual and Sick leave totals
         yearly_stats = []
         for staff_id, data in yearly_summary.items():
+            # Initialize separate dictionaries for Annual and Sick leave
+            annual_totals = {year: 0.0 for year in target_years}
+            sick_totals = {year: 0.0 for year in target_years}
+            
+            # Get leave requests for this staff member to separate by type
+            staff_leaves = LeaveRequest.query.filter(
+                LeaveRequest.staff_id == staff_id,
+                LeaveRequest.status == 'Approved'
+            ).all()
+            
+            for leave in staff_leaves:
+                if leave.start_date:
+                    # Calculate fiscal year (October start)
+                    if leave.start_date.month >= 10:
+                        year = leave.start_date.year + 1
+                    else:
+                        year = leave.start_date.year
+                    
+                    if year in target_years:
+                        days = float(leave.total_days) if leave.total_days else 0.0
+                        if leave.leave_type == 'Annual':
+                            annual_totals[year] += days
+                        elif leave.leave_type == 'Sick':
+                            sick_totals[year] += days
+            
             yearly_stats.append({
                 'emp_id': staff_id,
                 'full_name': data['name'],
-                'years': data['years']
+                'annual': annual_totals,
+                'sick': sick_totals
             })
         
         # Get recent attendance records (last 24 hours)
