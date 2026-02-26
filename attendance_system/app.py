@@ -80,6 +80,23 @@ class Staff(db.Model):
     sick_leave_balance = db.Column(db.Integer, default=7)  # Sick leave (7 days)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
+    # Property aliases for uppercase attribute names (used in templates)
+    @property
+    def EmpID(self):
+        return self.id
+    
+    @property
+    def EmployeeCode(self):
+        return self.employee_code
+    
+    @property
+    def FirstName(self):
+        return self.first_name
+    
+    @property
+    def LastName(self):
+        return self.last_name
+    
     def to_dict(self):
         return {
             'id': self.id,
