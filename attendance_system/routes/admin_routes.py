@@ -174,6 +174,11 @@ def add_manual_leave():
         # Calculate actual days excluding weekends and holidays
         actual_days = calculate_actual_leave_days(start_date, end_date)
         
+        # DEBUG: Print the actual days calculation
+        print(f"DEBUG: Start date: {start_date}, End date: {end_date}")
+        print(f"DEBUG: Date range days (inclusive): {(end_date - start_date).days + 1}")
+        print(f"DEBUG: Calculated actual_days: {actual_days}")
+        
         # Calculate fiscal year using October 1st logic
         if start_date.month >= 10:
             fiscal_year = start_date.year + 1
