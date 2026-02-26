@@ -621,7 +621,9 @@ def admin_dashboard():
                             upcoming_leaves=upcoming_leaves,
                             historical_leaves=historical_leaves,
                             staff_lookup=name_map,
-                            yearly_stats=yearly_stats)
+                            yearly_stats=yearly_stats,
+                            annual_leave_limit=21,
+                            sick_leave_limit=14)
     except Exception as e:
         print(f"❌ ERROR in admin_dashboard: {str(e)}")
         import traceback
@@ -637,6 +639,9 @@ def admin_dashboard():
                             selected_year='',
                             approved_leaves=[],
                             all_approved_leaves=[],
+                            yearly_stats=[],
+                            annual_leave_limit=21,
+                            sick_leave_limit=14,
                             error=f"Database error: {str(e)}")
 
 # Add Historical Leave route (standalone)
