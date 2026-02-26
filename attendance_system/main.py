@@ -8,8 +8,21 @@ All routes (Admin and Staff) are enabled regardless of environment.
 """
 
 import os
+import pytz
 from datetime import datetime, date, timedelta
 from functools import wraps
+
+# Timezone configuration
+NAIROBI_TIMEZONE = pytz.timezone('Africa/Nairobi')
+UTC = pytz.UTC
+
+def get_nairobi_now():
+    """Get current datetime in Nairobi timezone"""
+    return datetime.now(NAIROBI_TIMEZONE)
+
+def get_nairobi_today():
+    """Get today's date in Nairobi timezone"""
+    return get_nairobi_now().date()
 
 # Import configuration
 from config import (
@@ -483,10 +496,12 @@ def admin_dashboard():
         return redirect(url_for('admin_login'))
     
     try:
-        today = date.today()
+        # Use Nairobi timezone for today's date (staff is in Nairobi, server is in Oregon)
+        today = get_nairobi_today()
         
         # Debug: Print database connection info
         print(f"🔍 Database connection: {SQLALCHEMY_DATABASE_URI[:30]}...")
+        print(f"📅 Nairobi Today: {today}")
         
         employees = Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all()
         print(f"👥 Active employees found: {len(employees)}")
