@@ -694,7 +694,7 @@ def add_historical_leave():
                 multiplier = 1.0  # Full Day
             elif total_days_str == '0.5':
                 multiplier = 0.5  # Half Day
-            elif total_days_str == 'other':
+            elif total_days_str == 'manual':
                 # Use manual input for custom multiplier
                 try:
                     multiplier = float(manual_days_str) if manual_days_str else 1.0
@@ -704,7 +704,8 @@ def add_historical_leave():
                 multiplier = 1.0  # Default to Full Day
             
             # Step 3: Calculate total days = range_days * multiplier
-            total_days = float(date_range_days) * multiplier
+            calculated_total = date_range_days * multiplier
+            total_days = float(calculated_total)
         
         fiscal_year = get_fiscal_year_python(start_date)
         
