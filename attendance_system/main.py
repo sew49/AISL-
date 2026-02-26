@@ -111,6 +111,7 @@ class Attendance(db.Model):
     WorkHours = db.Column(db.Numeric(4, 2), default=0)
     Status = db.Column(db.String(20), default='Present')
     Notes = db.Column(db.Text)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     
     employee = db.relationship('Employee', backref='attendance_records')
     
@@ -125,7 +126,8 @@ class Attendance(db.Model):
             'expected_hours': self.ExpectedHours,
             'work_hours': float(self.WorkHours) if self.WorkHours else 0,
             'status': self.Status,
-            'notes': self.Notes
+            'notes': self.Notes,
+            'timestamp': self.timestamp.isoformat() if self.timestamp else None
         }
 
 
