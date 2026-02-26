@@ -664,20 +664,15 @@ def add_historical_leave():
                                 employees=Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all(),
                                 error='End date must be after start date')
         
-        # 2. CALCULATE RANGE FIRST (Inclusive)
+        # 1. Calculate the actual number of calendar days (inclusive)
         date_range_days = (end_date - start_date).days + 1
         
-        # 3. GET MULTIPLIER FROM DROPDOWN
-        # Note: Use 'total_days' because your HTML name is "total_days"
-        multiplier_str = request.form.get('total_days')
+        # 2. Get the multiplier (Now only 1.0 for Auto or 0.5 for Half)
+        multiplier_str = request.form.get('total_days', '1.0')
+        multiplier = float(multiplier_str)
         
-        if multiplier_str == 'manual':
-            multiplier = 1.0  # Default for 'other', then use manual input
-            final_total = float(request.form.get('manual_days', 0))
-        else:
-            multiplier = float(multiplier_str) if multiplier_str else 1.0
-            # 4. APPLY THE MATH: Range * Multiplier
-            final_total = date_range_days * multiplier
+        # 3. THE FIX: The total is ALWAYS the range multiplied by the selection
+        final_total = float(date_range_days * multiplier)
         
         fiscal_year = get_fiscal_year_python(start_date)
         
