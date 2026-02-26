@@ -192,10 +192,14 @@ def get_today_attendance():
         
         employees = Employee.query.filter_by(IsActive=True).all()
         
-        # Get all attendance records for today using Nairobi date = db.session.query(Attendance).filter
-        attendance_records(
-            Attendance.WorkDate == today
-        ).all()
+        # Get all attendance records for the last 7 days (to handle flexible matching)
+        # This allows showing recent clock-ins even if recorded on previous day
+        from datetime import timedelta
+        week_ago = today - timedelta(days=7)
+        all_recent_attendance = Attendance.query.filter(
+            Attendance.WorkDate >= week_ago,
+            Attendance.WorkDate <= today
+        ).order_by(Attendance.WorkDate.desc(), Attendance.timestamp.desc()).all()
         
         # Get leave requests for today
         leave_requests = LeaveRequest.query.filter(
@@ -204,15 +208,19 @@ def get_today_attendance():
             LeaveRequest.Status == 'Approved'
         ).all()
         
-        # Build dictionaries for quick lookup
-        emp_attendance = {a.EmpID: a for a in attendance_records}
+        # Build dictionaries for quick lookup - get most recent record per employee
+        emp_latest_attendance = {}
+        for att in all_recent_attendance:
+            if att.EmpID not in emp_latest_attendance:
+                emp_latest_attendance[att.EmpID] = att
+        
         emp_leave = {lr.EmpID: lr for lr in leave_requests}
         
         result = []
         
         for emp in employees:
             emp_id = emp.EmpID
-            att = emp_attendance.get(emp_id)
+            att = emp_latest_attendance.get(emp_id)
             leave = emp_leave.get(emp_id)
             
             clock_in = None
@@ -224,8 +232,8 @@ def get_today_attendance():
                 clock_in = att.ClockIn.strftime('%H:%M') if att.ClockIn else None
                 clock_out = att.ClockOut.strftime('%H:%M') if att.ClockOut else None
                 
-                # Check if this is a recent clock-in (within 14 hours)
-                if att.ClockIn:
+                # Check if this is a recent clock-in (within 14 hours from Nairobi time)
+                if att.ClockIn and not att.ClockOut:
                     # Combine work date with clock in time
                     clock_in_datetime = datetime.combine(att.WorkDate, att.ClockIn)
                     clock_in_datetime = nairobi_tz.localize(clock_in_datetime)
@@ -236,9 +244,9 @@ def get_today_attendance():
                 
                 if clock_in and clock_out:
                     status = 'Clocked Out'
-                    is_recent = False  # Not recent anymore since they clocked out
+                    is_recent = False
                 elif clock_in and is_recent:
-                    status = 'Present'
+                    status = 'Present'  # GREEN status
                 elif clock_in:
                     status = 'Clocked In'
                 else:
@@ -256,7 +264,8 @@ def get_today_attendance():
                 'status': status,
                 'clock_in': clock_in,
                 'clock_out': clock_out,
-                'is_recent': is_recent  # For UI to apply green color
+                'is_recent': is_recent,  # For UI to apply green color
+                'work_date': att.WorkDate.isoformat() if att else None
             })
         
         return jsonify({
