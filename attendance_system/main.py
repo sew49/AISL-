@@ -444,7 +444,12 @@ def export_leave_summary():
                         year = leave.StartDate.year
                     
                     if year in target_years:
-                        yearly_totals[year] += float(leave.TotalDays) if leave.TotalDays else 0.0
+                        days = float(leave.TotalDays) if leave.TotalDays else 0.0
+                        # Separate by leave type
+                        if leave.LeaveType == 'Annual':
+                            annual_totals[year] += days
+                        elif leave.LeaveType == 'Sick':
+                            sick_totals[year] += days
             
             yearly_stats.append({
                 'emp_id': emp_id,
@@ -565,8 +570,9 @@ def admin_dashboard():
         
         for emp in employees:
             emp_id = emp.EmpID
-            # Initialize yearly totals for this employee as floats
-            yearly_totals = {year: 0.0 for year in target_years}
+            # Initialize separate yearly totals for Annual and Sick leave
+            annual_totals = {year: 0.0 for year in target_years}
+            sick_totals = {year: 0.0 for year in target_years}
             
             # Calculate totals from historical leaves for this employee
             for leave in historical_leaves:
@@ -579,13 +585,19 @@ def admin_dashboard():
                         year = leave.StartDate.year
                     
                     if year in target_years:
-                        yearly_totals[year] += float(leave.TotalDays) if leave.TotalDays else 0.0
+                        days = float(leave.TotalDays) if leave.TotalDays else 0.0
+                        # Separate by leave type
+                        if leave.LeaveType == 'Annual':
+                            annual_totals[year] += days
+                        elif leave.LeaveType == 'Sick':
+                            sick_totals[year] += days
             
-            # Build the row with Employee ID, Full Name (using name_map), and yearly totals
+            # Build the row with Employee ID, Full Name (using name_map), and separate yearly totals
             row = {
                 'emp_id': emp_id,
                 'full_name': name_map.get(emp_id, f"{emp.FirstName} {emp.LastName}"),
-                'years': yearly_totals
+                'annual': annual_totals,
+                'sick': sick_totals
             }
             yearly_stats.append(row)
         
