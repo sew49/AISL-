@@ -671,9 +671,9 @@ def add_historical_leave():
         # Note: Use 'total_days' because your HTML name is "total_days"
         multiplier_str = request.form.get('total_days')
         
-        if multiplier_str == 'other':
+        if multiplier_str == 'manual':
             multiplier = 1.0  # Default for 'other', then use manual input
-            final_total = float(request.form.get('other_days', 0))
+            final_total = float(request.form.get('manual_days', 0))
         else:
             multiplier = float(multiplier_str) if multiplier_str else 1.0
             # 4. APPLY THE MATH: Range * Multiplier
