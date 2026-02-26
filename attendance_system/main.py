@@ -664,7 +664,7 @@ def add_historical_leave():
                                 employees=Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all(),
                                 error='End date must be after start date')
         
-        # Check if manual days input is provided
+        # Get dropdown values
         total_days_str = request.form.get('total_days', '').strip()
         manual_days_str = request.form.get('manual_days', '').strip()
         
@@ -685,14 +685,26 @@ def add_historical_leave():
                                     employees=Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all(),
                                     error='Invalid days value. Please enter a number.')
         else:
-            # Step 1: Calculate days between start_date and end_date (inclusive: +1)
+            # Step 1: Calculate days between start_date and end_date (inclusive)
             date_range_days = (end_date - start_date).days + 1
             
-            # Get the multiplier from dropdown (1.0 for Full Day, 0.5 for Half Day)
-            multiplier = float(total_days_str) if total_days_str else 1.0
+            # Step 2: Determine multiplier based on dropdown selection
+            # Full Day (1.0) = 1.0, Half Day (0.5) = 0.5, Other = use manual input
+            if total_days_str == '1.0':
+                multiplier = 1.0  # Full Day
+            elif total_days_str == '0.5':
+                multiplier = 0.5  # Half Day
+            elif total_days_str == 'other':
+                # Use manual input for custom multiplier
+                try:
+                    multiplier = float(manual_days_str) if manual_days_str else 1.0
+                except ValueError:
+                    multiplier = 1.0
+            else:
+                multiplier = 1.0  # Default to Full Day
             
-            # Step 2 & 3: Multiply by the selected multiplier
-            total_days = date_range_days * multiplier
+            # Step 3: Calculate total days = range_days * multiplier
+            total_days = float(date_range_days) * multiplier
         
         fiscal_year = get_fiscal_year_python(start_date)
         
