@@ -581,9 +581,11 @@ def admin_dashboard():
                     
                     if year in target_years:
                         days = float(leave.total_days) if leave.total_days else 0.0
-                        if leave.leave_type == 'Annual':
+                        # Flexible Matching: Check for both 'Annual' and 'Annual Leave'
+                        if leave.leave_type in ['Annual', 'Annual Leave']:
                             annual_totals[year] += days
-                        elif leave.leave_type == 'Sick':
+                        # Flexible Matching: Check for both 'Sick' and 'Sick Leave'
+                        elif leave.leave_type in ['Sick', 'Sick Leave']:
                             sick_totals[year] += days
             
             yearly_stats.append({
