@@ -491,8 +491,9 @@ def admin_dashboard():
         employees = Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all()
         print(f"👥 Active employees found: {len(employees)}")
         
-        # Get last 50 attendance records ordered by timestamp (most recent first)
-        attendance = Attendance.query.order_by(Attendance.AttendanceID.desc()).limit(50).all()
+        # Get last 100 attendance records ordered by timestamp (most recent first)
+        # No date filter - get all recent records
+        attendance = Attendance.query.order_by(Attendance.timestamp.desc()).limit(100).all()
         print(f"📋 Recent attendance records: {len(attendance)}")
         
         # Debug: Also get all attendance to see if there are any records at all
