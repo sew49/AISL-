@@ -2,20 +2,21 @@
 Staff Routes for the Attendance System
 These routes are enabled when running locally (no RENDER env var)
 """
+import pytz
 from flask import Blueprint, request, jsonify, render_template, session
 from datetime import datetime, date, timezone, timedelta
 from functools import wraps
 
-# Kenya timezone (UTC+3)
-KENA_TIMEZONE = timezone(timedelta(hours=3))
+# Nairobi timezone (Africa/Nairobi - UTC+3)
+NAIROBI_TIMEZONE = pytz.timezone('Africa/Nairobi')
 
-def get_kenya_now():
-    """Get current datetime in Kenya timezone"""
-    return datetime.now(KENA_TIMEZONE)
+def get_nairobi_now():
+    """Get current datetime in Nairobi timezone"""
+    return datetime.now(NAIROBI_TIMEZONE)
 
-def get_kenya_today():
-    """Get today's date in Kenya timezone"""
-    return get_kenya_now().date()
+def get_nairobi_today():
+    """Get today's date in Nairobi timezone"""
+    return get_nairobi_now().date()
 
 # =====================================================
 # STAFF BLUEPRINT
@@ -184,8 +185,8 @@ def get_today_attendance():
     LeaveRequest = current_app.LeaveRequest
     
     try:
-        # Use Kenya timezone for today's date (staff is in Nairobi, server is in Oregon)
-        today = get_kenya_today()
+    # Use Nairobi timezone for today's date (staff is in Nairobi, server is in Oregon)
+        today = get_nairobi_today()
         
         employees = Employee.query.filter_by(IsActive=True).all()
         attendance = db.session.query(Attendance).filter(Attendance.WorkDate == today).all()
