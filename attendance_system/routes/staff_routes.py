@@ -184,10 +184,11 @@ def get_today_attendance():
     LeaveRequest = current_app.LeaveRequest
     
     try:
-        today = date.today()
+        # Use Kenya timezone for today's date (staff is in Nairobi, server is in Oregon)
+        today = get_kenya_today()
         
         employees = Employee.query.filter_by(IsActive=True).all()
-        attendance = db.session.query(Attendance).filter(Attendance.WorkDate == date.today()).all()
+        attendance = db.session.query(Attendance).filter(Attendance.WorkDate == today).all()
         
         leave_requests = LeaveRequest.query.filter(
             LeaveRequest.StartDate <= today,
