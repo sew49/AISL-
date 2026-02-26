@@ -664,48 +664,20 @@ def add_historical_leave():
                                 employees=Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all(),
                                 error='End date must be after start date')
         
-        # Get dropdown values
-        total_days_str = request.form.get('total_days', '').strip()
-        manual_days_str = request.form.get('manual_days', '').strip()
+        # 2. CALCULATE RANGE FIRST (Inclusive)
+        date_range_days = (end_date - start_date).days + 1
         
-        if total_days_str == 'manual':
-            # Manual entry from the manual_days input field
-            if not manual_days_str:
-                return render_template('admin/add_historical_leave.html', 
-                                    employees=Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all(),
-                                    error='Please enter the number of days for manual entry')
-            try:
-                total_days = float(manual_days_str)
-                if total_days <= 0:
-                    return render_template('admin/add_historical_leave.html', 
-                                        employees=Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all(),
-                                        error='Days must be a positive number')
-            except ValueError:
-                return render_template('admin/add_historical_leave.html', 
-                                    employees=Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all(),
-                                    error='Invalid days value. Please enter a number.')
+        # 3. GET MULTIPLIER FROM DROPDOWN
+        # Note: Use 'total_days' because your HTML name is "total_days"
+        multiplier_str = request.form.get('total_days')
+        
+        if multiplier_str == 'other':
+            multiplier = 1.0  # Default for 'other', then use manual input
+            final_total = float(request.form.get('other_days', 0))
         else:
-            # Step 1: Calculate days between start_date and end_date (inclusive)
-            date_range_days = (end_date - start_date).days + 1
-            
-            # Step 2: Determine multiplier based on dropdown selection
-            # Full Day (1.0) = 1.0, Half Day (0.5) = 0.5, Other = use manual input
-            if total_days_str == '1.0':
-                multiplier = 1.0  # Full Day
-            elif total_days_str == '0.5':
-                multiplier = 0.5  # Half Day
-            elif total_days_str == 'manual':
-                # Use manual input for custom multiplier
-                try:
-                    multiplier = float(manual_days_str) if manual_days_str else 1.0
-                except ValueError:
-                    multiplier = 1.0
-            else:
-                multiplier = 1.0  # Default to Full Day
-            
-            # Step 3: Calculate total days = range_days * multiplier
-            calculated_total = date_range_days * multiplier
-            total_days = float(calculated_total)
+            multiplier = float(multiplier_str) if multiplier_str else 1.0
+            # 4. APPLY THE MATH: Range * Multiplier
+            final_total = date_range_days * multiplier
         
         fiscal_year = get_fiscal_year_python(start_date)
         
@@ -738,7 +710,7 @@ def add_historical_leave():
             LeaveType=leave_type,
             StartDate=start_date,
             EndDate=end_date,
-            TotalDays=total_days,
+            TotalDays=final_total,
             Reason=reason,
             Department=department,
             Status='Approved',
@@ -750,16 +722,16 @@ def add_historical_leave():
         
         if leave_type in ['Annual', 'Sick', 'Casual']:
             if leave_type == 'Annual':
-                balance.UsedAnnualDays = float(balance.UsedAnnualDays) + float(total_days)
+                balance.UsedAnnualDays = float(balance.UsedAnnualDays) + float(final_total)
             elif leave_type == 'Sick':
-                balance.UsedSickDays = float(balance.UsedSickDays) + float(total_days)
+                balance.UsedSickDays = float(balance.UsedSickDays) + float(final_total)
             elif leave_type == 'Casual':
-                balance.UsedCasualDays = float(balance.UsedCasualDays) + float(total_days)
+                balance.UsedCasualDays = float(balance.UsedCasualDays) + float(final_total)
             db.session.commit()
         
         return render_template('admin/add_historical_leave.html', 
                             employees=Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all(),
-                            success=f'Successfully added historical leave for {employee.FirstName} {employee.LastName}. Duration: {total_days} days')
+                            success=f'Successfully added historical leave for {employee.FirstName} {employee.LastName}. Duration: {final_total} days')
         
     except Exception as e:
         import traceback
