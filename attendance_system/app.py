@@ -328,6 +328,52 @@ def calculate_leave_days(start_date, end_date):
     return total_days
 
 
+def calculate_kenyan_leave(start_date, end_date):
+    """
+    Calculate leave days for Kenyan holidays (2026).
+    
+    Daily Check:
+    - Sunday or Holiday: Add 0.0 days
+    - Saturday: Add 0.5 days
+    - Monday-Friday: Add 1.0 day
+    
+    Args:
+        start_date: Start date of the leave
+        end_date: End date of the leave
+    
+    Returns:
+        float: Total leave days count
+    """
+    # Kenyan public holidays for 2026
+    kenyan_holidays_2026 = {
+        date(2026, 1, 1),   # New Year's Day
+        date(2026, 4, 3),   # Good Friday
+        date(2026, 4, 6),   # Easter Monday
+        date(2026, 5, 1),   # Labour Day
+        date(2026, 6, 1),   # Madaraka Day
+        date(2026, 10, 10), # Huduma Day
+        date(2026, 10, 20), # Mashujaa Day
+        date(2026, 12, 12), # Jamhuri Day
+        date(2026, 12, 25), # Christmas Day
+        date(2026, 12, 26), # Boxing Day
+    }
+    
+    total_days = 0.0
+    current = start_date
+    while current <= end_date:
+        # Sunday (weekday 6) or Holiday: Add 0.0 days
+        if current.weekday() == 6 or current in kenyan_holidays_2026:
+            total_days += 0.0
+        # Saturday (weekday 5): Add 0.5 days
+        elif current.weekday() == 5:
+            total_days += 0.5
+        # Monday-Friday (weekday 0-4): Add 1.0 day
+        else:
+            total_days += 1.0
+        current = date.fromordinal(current.toordinal() + 1)
+    return total_days
+
+
 def is_late_arrival(clock_in_time):
     """Check if the clock-in time is after 08:15 AM"""
     if not clock_in_time:
@@ -705,23 +751,14 @@ def add_historical_leave():
                                     employees=Staff.query.filter_by(is_active=True).order_by(Staff.employee_code.asc()).all(),
                                     error='Invalid days value. Please enter a number.')
         else:
-            # Step 1: Determine multiplier based on dropdown selection
-            # Full Day (1.0) = 1.0, Half Day (0.5) = 0.5, Other = use manual input
-            if total_days_str == '1.0':
-                multiplier = 1.0  # Full Day
-            elif total_days_str == '0.5':
-                multiplier = 0.5  # Half Day
-            elif total_days_str == 'other':
-                # Use manual input for custom multiplier
-                try:
-                    multiplier = float(manual_days_str) if manual_days_str else 1.0
-                except ValueError:
-                    multiplier = 1.0
-            else:
-                multiplier = 1.0  # Default to Full Day
+            # Use calculate_kenyan_leave function for automatic calculation
+            total_days = calculate_kenyan_leave(start_date, end_date)
             
-            # Step 2: Calculate total days = date_range_days * multiplier
-            total_days = float(date_range_days) * multiplier
+            # Apply multiplier based on dropdown selection
+            # Full Day (1.0) = 1.0, Half Day (0.5) = multiply by 0.5
+            if total_days_str == '0.5':
+                # Manual Override: If Admin selects 'Half Day', multiply by 0.5
+                total_days = total_days * 0.5
         
         staff_member = Staff.query.get(emp_id)
         department = staff_member.department if staff_member and staff_member.department else 'Operations'
@@ -1305,7 +1342,7 @@ def leave_requests():
         if not staff:
             return jsonify({'success': False, 'error': 'Staff not found'}), 404
         
-        total_days = calculate_leave_days(start_date, end_date)
+        total_days = calculate_kenyan_leave(start_date, end_date)
         
         if leave_type == 'Annual':
             if staff.leave_balance < total_days:
