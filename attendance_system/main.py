@@ -668,10 +668,7 @@ def add_historical_leave():
         total_days_str = request.form.get('total_days', '').strip()
         manual_days_str = request.form.get('manual_days', '').strip()
         
-        if total_days_str == '0.5':
-            # Half Day (0.5) - ignore date range, save exactly 0.5
-            total_days = 0.5
-        elif total_days_str == 'manual':
+        if total_days_str == 'manual':
             # Manual entry from the manual_days input field
             if not manual_days_str:
                 return render_template('admin/add_historical_leave.html', 
@@ -687,32 +684,15 @@ def add_historical_leave():
                 return render_template('admin/add_historical_leave.html', 
                                     employees=Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all(),
                                     error='Invalid days value. Please enter a number.')
-        elif total_days_str and total_days_str != 'auto':
-            # Direct manual entry (backward compatibility)
-            try:
-                total_days = float(total_days_str)
-                if total_days <= 0:
-                    return render_template('admin/add_historical_leave.html', 
-                                        employees=Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all(),
-                                        error='Days must be a positive number')
-            except ValueError:
-                return render_template('admin/add_historical_leave.html', 
-                                    employees=Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all(),
-                                    error='Invalid days value. Please enter a number.')
         else:
-            # Auto-calculate: Loop through dates - weekdays as 1.0, Saturdays as 0.5, Sundays excluded
-            # Feb 26 to Feb 27 = 2 days (both weekdays)
-            total_days = 0
-            current_date = start_date
-            while current_date <= end_date:
-                dow = current_date.weekday()
-                if dow == 6:  # Sunday - skip
-                    pass
-                elif dow == 5:  # Saturday - count as 0.5
-                    total_days += 0.5
-                else:  # Monday-Friday - count as 1.0
-                    total_days += 1.0
-                current_date = date.fromordinal(current_date.toordinal() + 1)
+            # Step 1: Calculate days between start_date and end_date (inclusive: +1)
+            date_range_days = (end_date - start_date).days + 1
+            
+            # Get the multiplier from dropdown (1.0 for Full Day, 0.5 for Half Day)
+            multiplier = float(total_days_str) if total_days_str else 1.0
+            
+            # Step 2 & 3: Multiply by the selected multiplier
+            total_days = date_range_days * multiplier
         
         fiscal_year = get_fiscal_year_python(start_date)
         

@@ -113,11 +113,11 @@
                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     onchange="toggleManualDays()"
                 >
-                    <option value="auto">Full Day (Auto-Calculate)</option>
+                    <option value="1.0">Full Day (1.0)</option>
                     <option value="0.5">Half Day (0.5)</option>
                     <option value="manual">Other (Manual Entry)</option>
                 </select>
-                <p class="text-xs text-gray-500 mt-1">Select "Full Day" to auto-calculate from date range (weekdays=1.0, Saturdays=0.5). Select "Half Day" for exactly 0.5 days.</p>
+                <p class="text-xs text-gray-500 mt-1">Full Day: Multiply date range by 1.0. Half Day: Multiply by 0.5. Other: Enter custom value.</p>
             </div>
             
             <!-- Manual Days Input (shown when "Other" is selected) -->
