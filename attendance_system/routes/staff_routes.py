@@ -268,6 +268,7 @@ def create_leave_request():
 
     emp_id = data.get('emp_id')
     leave_type = data.get('leave_type')
+    day_type = data.get('day_type', '1.0')  # Default to Full Day (1.0)
     start_date_str = data.get('start_date')
     end_date_str = data.get('end_date')
     reason = data.get('reason', '')
@@ -295,7 +296,11 @@ def create_leave_request():
         return jsonify({'success': False, 'error': f'Invalid date format. Use YYYY-MM-DD. Error: {str(e)}'}), 400
 
     try:
-        total_days = calculate_leave_days_python(start_date, end_date)
+        # Check if day_type is provided (Half Day = 0.5, Full Day = 1.0)
+        if day_type and day_type != '1.0':
+            total_days = float(day_type)
+        else:
+            total_days = calculate_leave_days_python(start_date, end_date)
 
         if leave_type in ['Annual', 'Sick']:
             fiscal_year = get_fiscal_year_python(start_date)

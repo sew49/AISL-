@@ -635,7 +635,23 @@ def add_historical_leave():
                                 employees=Staff.query.filter_by(is_active=True).order_by(Staff.employee_code.asc()).all(),
                                 error='End date must be after start date')
         
-        total_days = calculate_leave_days(start_date, end_date)
+        # Get total_days from form - use float() to ensure decimal is saved correctly in Supabase
+        total_days_str = request.form.get('total_days', '').strip()
+        if total_days_str and total_days_str != 'other':
+            # Use the value from dropdown (1.0 or 0.5) or manual entry
+            try:
+                total_days = float(total_days_str)
+                if total_days <= 0:
+                    return render_template('admin/add_historical_leave.html', 
+                                        employees=Staff.query.filter_by(is_active=True).order_by(Staff.employee_code.asc()).all(),
+                                        error='Days must be a positive number')
+            except ValueError:
+                return render_template('admin/add_historical_leave.html', 
+                                    employees=Staff.query.filter_by(is_active=True).order_by(Staff.employee_code.asc()).all(),
+                                    error='Invalid days value. Please enter a number.')
+        else:
+            # Auto-calculate from dates if no manual input
+            total_days = calculate_leave_days(start_date, end_date)
         
         staff_member = Staff.query.get(emp_id)
         department = staff_member.department if staff_member and staff_member.department else 'Operations'

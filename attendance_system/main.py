@@ -489,8 +489,8 @@ def admin_dashboard():
         employees = Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all()
         print(f"👥 Active employees found: {len(employees)}")
         
-        # Get today's attendance records (most recent 22)
-        attendance = Attendance.query.order_by(Attendance.AttendanceID.desc()).limit(22).all()
+        # Get last 50 attendance records ordered by timestamp (most recent first)
+        attendance = Attendance.query.order_by(Attendance.AttendanceID.desc()).limit(50).all()
         print(f"📋 Recent attendance records: {len(attendance)}")
         
         # Debug: Also get all attendance to see if there are any records at all
@@ -646,7 +646,24 @@ def add_historical_leave():
                                 employees=Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all(),
                                 error='End date must be after start date')
         
-        total_days = calculate_leave_days_python(start_date, end_date)
+        # Check if manual days input is provided
+        total_days_str = request.form.get('total_days', '').strip()
+        if total_days_str:
+            # Use manual input as float
+            try:
+                total_days = float(total_days_str)
+                if total_days <= 0:
+                    return render_template('admin/add_historical_leave.html', 
+                                        employees=Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all(),
+                                        error='Days must be a positive number')
+            except ValueError:
+                return render_template('admin/add_historical_leave.html', 
+                                    employees=Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all(),
+                                    error='Invalid days value. Please enter a number.')
+        else:
+            # Auto-calculate from dates
+            total_days = calculate_leave_days_python(start_date, end_date)
+        
         fiscal_year = get_fiscal_year_python(start_date)
         
         employee = Employee.query.get(emp_id)

@@ -107,6 +107,16 @@
                         </select>
                     </div>
                     <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Day Type</label>
+                        <select id="dayType" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="1.0">Full Day</option>
+                            <option value="0.5">Half Day</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Department</label>
                         <select id="leaveDepartment" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
                             <option value="">-- Select Department --</option>
@@ -117,13 +127,13 @@
                             <option value="Stores Department">Stores Department</option>
                         </select>
                     </div>
-                </div>
-                
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
                         <input type="date" id="leaveStartDate" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
                     </div>
+                </div>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
                         <input type="date" id="leaveEndDate" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
@@ -432,6 +442,7 @@ employeeSelect.addEventListener('change', (e) => {
             
             const empId = selectedEmployeeId || employeeSelect.value;
             const leaveType = document.getElementById('leaveType').value;
+            const dayType = document.getElementById('dayType').value;
             const department = document.getElementById('leaveDepartment').value;
             const startDate = document.getElementById('leaveStartDate').value;
             const endDate = document.getElementById('leaveEndDate').value;
@@ -459,6 +470,7 @@ employeeSelect.addEventListener('change', (e) => {
                     body: JSON.stringify({
                         emp_id: parseInt(empId),
                         leave_type: leaveType,
+                        day_type: dayType,
                         start_date: startDate,
                         end_date: endDate,
                         reason: reason,

@@ -169,7 +169,7 @@
     <!-- Manual Leave Entry Form (2021-2025) -->
     <div class="mt-8 bg-white p-6 rounded-lg shadow-md">
         <h3 class="text-xl font-bold mb-4">Admin: Manual Leave Entry (2021-2025)</h3>
-        <form action="{{ url_for('add_historical_leave') }}" method="POST" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <form action="{{ url_for('add_historical_leave') }}" method="POST" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
             <div>
                 <label class="block text-gray-700 text-sm font-bold mb-1">Select Employee</label>
                 <select name="emp_id" class="w-full border border-gray-300 rounded-lg p-2 text-sm" required>
@@ -194,13 +194,54 @@
                 <label class="block text-gray-700 text-sm font-bold mb-1">End Date</label>
                 <input type="date" name="end_date" class="w-full border border-gray-300 rounded-lg p-2 text-sm" required>
             </div>
+            <div>
+                <label class="block text-gray-700 text-sm font-bold mb-1">Total Days</label>
+                <select name="total_days" id="total_days" class="w-full border border-gray-300 rounded-lg p-2 text-sm" required onchange="toggleOtherDays()">
+                    <option value="1.0">Full Day (1.0)</option>
+                    <option value="0.5">Half Day (0.5)</option>
+                    <option value="other">Other (manual entry)</option>
+                </select>
+                <input type="number" id="other_days" name="other_days" step="0.5" min="0.5" max="30" class="w-full border border-gray-300 rounded-lg p-2 text-sm mt-1" style="display:none;" placeholder="Enter days (e.g. 1.5, 5.0)">
+            </div>
             <div class="flex items-end">
                 <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 w-full text-sm font-bold">
                     Add Historical Leave
                 </button>
             </div>
         </form>
+        <p class="text-xs text-gray-500 mt-2">
+            * Select Full Day (1.0) for weekdays, Half Day (0.5) for Saturdays, or choose "Other" for custom durations.
+        </p>
     </div>
+
+    <script>
+        function toggleOtherDays() {
+            var select = document.getElementById('total_days');
+            var otherInput = document.getElementById('other_days');
+            if (select.value === 'other') {
+                otherInput.style.display = 'block';
+                otherInput.setAttribute('required', 'required');
+            } else {
+                otherInput.style.display = 'none';
+                otherInput.removeAttribute('required');
+                otherInput.value = '';
+            }
+        }
+        
+        // Also handle form submission to set the correct total_days value
+        document.querySelector('form[action*="add_historical_leave"]').addEventListener('submit', function(e) {
+            var select = document.getElementById('total_days');
+            var otherInput = document.getElementById('other_days');
+            if (select.value === 'other') {
+                // Replace 'other' with the actual entered value
+                var hiddenInput = document.createElement('input');
+                hiddenInput.type = 'hidden';
+                hiddenInput.name = 'total_days';
+                hiddenInput.value = otherInput.value;
+                this.appendChild(hiddenInput);
+            }
+        });
+    </script>
     
     <!-- Pending Leave Requests -->
     <section class="bg-white rounded-xl card-shadow p-4 md:p-6">
