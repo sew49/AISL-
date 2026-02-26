@@ -635,12 +635,21 @@ def add_historical_leave():
                                 employees=Staff.query.filter_by(is_active=True).order_by(Staff.employee_code.asc()).all(),
                                 error='End date must be after start date')
         
-        # Get total_days from form - use float() to ensure decimal is saved correctly in Supabase
+        # Get dropdown values
         total_days_str = request.form.get('total_days', '').strip()
-        if total_days_str and total_days_str != 'other':
-            # Use the value from dropdown (1.0 or 0.5) or manual entry
+        manual_days_str = request.form.get('manual_days', '').strip()
+        
+        # Calculate date range in days (inclusive)
+        date_range_days = (end_date - start_date).days + 1
+        
+        if total_days_str == 'manual':
+            # Manual entry from the manual_days input field
+            if not manual_days_str:
+                return render_template('admin/add_historical_leave.html', 
+                                    employees=Staff.query.filter_by(is_active=True).order_by(Staff.employee_code.asc()).all(),
+                                    error='Please enter the number of days for manual entry')
             try:
-                total_days = float(total_days_str)
+                total_days = float(manual_days_str)
                 if total_days <= 0:
                     return render_template('admin/add_historical_leave.html', 
                                         employees=Staff.query.filter_by(is_active=True).order_by(Staff.employee_code.asc()).all(),
@@ -650,8 +659,23 @@ def add_historical_leave():
                                     employees=Staff.query.filter_by(is_active=True).order_by(Staff.employee_code.asc()).all(),
                                     error='Invalid days value. Please enter a number.')
         else:
-            # Auto-calculate from dates if no manual input
-            total_days = calculate_leave_days(start_date, end_date)
+            # Step 1: Determine multiplier based on dropdown selection
+            # Full Day (1.0) = 1.0, Half Day (0.5) = 0.5, Other = use manual input
+            if total_days_str == '1.0':
+                multiplier = 1.0  # Full Day
+            elif total_days_str == '0.5':
+                multiplier = 0.5  # Half Day
+            elif total_days_str == 'other':
+                # Use manual input for custom multiplier
+                try:
+                    multiplier = float(manual_days_str) if manual_days_str else 1.0
+                except ValueError:
+                    multiplier = 1.0
+            else:
+                multiplier = 1.0  # Default to Full Day
+            
+            # Step 2: Calculate total days = date_range_days * multiplier
+            total_days = float(date_range_days) * multiplier
         
         staff_member = Staff.query.get(emp_id)
         department = staff_member.department if staff_member and staff_member.department else 'Operations'
