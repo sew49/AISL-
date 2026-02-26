@@ -3,8 +3,19 @@ Staff Routes for the Attendance System
 These routes are enabled when running locally (no RENDER env var)
 """
 from flask import Blueprint, request, jsonify, render_template, session
-from datetime import datetime, date
+from datetime import datetime, date, timezone, timedelta
 from functools import wraps
+
+# Kenya timezone (UTC+3)
+KENA_TIMEZONE = timezone(timedelta(hours=3))
+
+def get_kenya_now():
+    """Get current datetime in Kenya timezone"""
+    return datetime.now(KENA_TIMEZONE)
+
+def get_kenya_today():
+    """Get today's date in Kenya timezone"""
+    return get_kenya_now().date()
 
 # =====================================================
 # STAFF BLUEPRINT

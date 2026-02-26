@@ -651,12 +651,29 @@ def add_historical_leave():
         
         # Check if manual days input is provided
         total_days_str = request.form.get('total_days', '').strip()
+        manual_days_str = request.form.get('manual_days', '').strip()
         
         if total_days_str == '0.5':
             # Half Day (0.5) - ignore date range, save exactly 0.5
             total_days = 0.5
+        elif total_days_str == 'manual':
+            # Manual entry from the manual_days input field
+            if not manual_days_str:
+                return render_template('admin/add_historical_leave.html', 
+                                    employees=Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all(),
+                                    error='Please enter the number of days for manual entry')
+            try:
+                total_days = float(manual_days_str)
+                if total_days <= 0:
+                    return render_template('admin/add_historical_leave.html', 
+                                        employees=Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all(),
+                                        error='Days must be a positive number')
+            except ValueError:
+                return render_template('admin/add_historical_leave.html', 
+                                    employees=Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all(),
+                                    error='Invalid days value. Please enter a number.')
         elif total_days_str and total_days_str != 'auto':
-            # Manual entry (other values like 1.0, 1.5, 5.0, etc.)
+            # Direct manual entry (backward compatibility)
             try:
                 total_days = float(total_days_str)
                 if total_days <= 0:
@@ -669,6 +686,7 @@ def add_historical_leave():
                                     error='Invalid days value. Please enter a number.')
         else:
             # Auto-calculate: Loop through dates - weekdays as 1.0, Saturdays as 0.5, Sundays excluded
+            # Feb 26 to Feb 27 = 2 days (both weekdays)
             total_days = 0
             current_date = start_date
             while current_date <= end_date:
