@@ -651,8 +651,12 @@ def add_historical_leave():
         
         # Check if manual days input is provided
         total_days_str = request.form.get('total_days', '').strip()
-        if total_days_str:
-            # Use manual input as float
+        
+        if total_days_str == '0.5':
+            # Half Day (0.5) - ignore date range, save exactly 0.5
+            total_days = 0.5
+        elif total_days_str and total_days_str != 'auto':
+            # Manual entry (other values like 1.0, 1.5, 5.0, etc.)
             try:
                 total_days = float(total_days_str)
                 if total_days <= 0:
@@ -664,8 +668,18 @@ def add_historical_leave():
                                     employees=Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all(),
                                     error='Invalid days value. Please enter a number.')
         else:
-            # Auto-calculate from dates
-            total_days = calculate_leave_days_python(start_date, end_date)
+            # Auto-calculate: Loop through dates - weekdays as 1.0, Saturdays as 0.5, Sundays excluded
+            total_days = 0
+            current_date = start_date
+            while current_date <= end_date:
+                dow = current_date.weekday()
+                if dow == 6:  # Sunday - skip
+                    pass
+                elif dow == 5:  # Saturday - count as 0.5
+                    total_days += 0.5
+                else:  # Monday-Friday - count as 1.0
+                    total_days += 1.0
+                current_date = date.fromordinal(current_date.toordinal() + 1)
         
         fiscal_year = get_fiscal_year_python(start_date)
         
