@@ -39,7 +39,7 @@
     <section class="bg-white rounded-xl card-shadow p-6">
         <h2 class="text-lg font-semibold text-gray-800 mb-4">Record Historical Leave</h2>
         
-        <form method="POST" action="{{ url_for('admin_dashboard') }}">
+        <form method="POST" action="{{ url_for('add_historical_leave') }}">
             <!-- Employee -->
             <div class="mb-4">
                 <label class="block text-gray-700 text-sm font-bold mb-2" for="emp_id">
@@ -53,7 +53,7 @@
                 >
                     <option value="">-- Select Employee --</option>
                     {% for employee in employees %}
-                    <option value="{{ employee.id }}">{{ employee.employee_code }} - {{ employee.first_name }} {{ employee.last_name }}</option>
+                    <option value="{{ employee.EmpID }}">{{ employee.EmployeeCode }} - {{ employee.FirstName }} {{ employee.LastName }}</option>
                     {% endfor %}
                 </select>
             </div>
