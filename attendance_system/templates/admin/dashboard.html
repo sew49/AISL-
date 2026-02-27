@@ -74,13 +74,11 @@
                     {% set is_late = false %}
                     
                     {% if not is_on_leave %}
-                        <!-- Primary match: lowercase name normalization -->
-                        {% set normalized_staff_name = (s.FirstName ~ ' ' ~ s.LastName)|lower|trim %}
+                        <!-- Direct match: staff_id from attendance vs EmpID from staff -->
                         {% set is_present = false %}
                         {% for a in attendance %}
-                            {% set normalized_att_name = (a.employee.FirstName ~ ' ' ~ a.employee.LastName)|lower|trim if a.employee else '' %}
-                            <!-- DEBUG: Comparing att_name={{ normalized_att_name }} vs staff_name={{ normalized_staff_name }} OR id={{ a.EmpID|string }} vs {{ s.EmpID|string }} -->
-                            {% if not is_present and (normalized_att_name == normalized_staff_name or a.EmpID|string == s.EmpID|string) %}
+                            <!-- DEBUG: Comparing attendance.EmpID={{ a.EmpID }} vs staff.EmpID={{ s.EmpID }} -->
+                            {% if a.EmpID == s.EmpID %}
                                 {% set is_present = true %}
                                 {% set clock_in_display = a.ClockIn.strftime('%H:%M') if a.ClockIn else '-' %}
                                 {% set clock_out_display = a.ClockOut.strftime('%H:%M') if a.ClockOut else '-' %}
@@ -94,9 +92,10 @@
                             {% endif %}
                         {% endfor %}
                         {% if not is_present %}
-                            <!-- NO MATCH: Staff {{ s.EmpID }} ({{ normalized_staff_name }}) not found in attendance records -->
+                            <!-- NO MATCH: Staff {{ s.EmpID }} not found in attendance records -->
                         {% endif %}
                     {% endif %}
+
 
 
 
