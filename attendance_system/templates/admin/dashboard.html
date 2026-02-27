@@ -76,27 +76,31 @@
                     {% if not is_on_leave %}
                         <!-- DEBUG: present_ids = {{ present_ids }} -->
                         <!-- DEBUG: Checking s.EmpID|string = {{ s.EmpID|string }} -->
-                        {% if s.EmpID|string in present_ids %}
-                            {% set status_display = 'Present' %}
-                            <!-- Find the attendance record for this employee -->
-                            {% for a in attendance %}
-                                {% if a.EmpID|string == s.EmpID|string %}
-                                    {% set clock_in_display = a.ClockIn.strftime('%H:%M') if a.ClockIn else '-' %}
-                                    {% set clock_out_display = a.ClockOut.strftime('%H:%M') if a.ClockOut else '-' %}
-                                    {% set day_type_display = a.DayType or '-' %}
-                                    {% if a.ClockIn %}
-                                        {% set total_mins = a.ClockIn.hour * 60 + a.ClockIn.minute %}
-                                        {% if total_mins > 8 * 60 + 15 %}
-                                            {% set is_late = true %}
-                                            {% set status_display = 'Late' %}
-                                        {% endif %}
+                        {% set is_present = false %}
+                        {% set staff_name_lower = (s.FirstName ~ ' ' ~ s.LastName)|lower|trim %}
+                        {% for a in attendance %}
+                            {% set att_name_lower = (a.employee.FirstName ~ ' ' ~ a.employee.LastName)|lower|trim if a.employee else '' %}
+                            <!-- DEBUG: Comparing staff_id={{ a.EmpID|string }} vs EmpID={{ s.EmpID|string }} OR name={{ att_name_lower }} vs {{ staff_name_lower }} -->
+                            {% if not is_present and (a.EmpID|string == s.EmpID|string or att_name_lower == staff_name_lower) %}
+                                {% set is_present = true %}
+                                {% set status_display = 'Present' %}
+                                {% set clock_in_display = a.ClockIn.strftime('%H:%M') if a.ClockIn else '-' %}
+                                {% set clock_out_display = a.ClockOut.strftime('%H:%M') if a.ClockOut else '-' %}
+                                {% set day_type_display = a.DayType or '-' %}
+                                {% if a.ClockIn %}
+                                    {% set total_mins = a.ClockIn.hour * 60 + a.ClockIn.minute %}
+                                    {% if total_mins > 8 * 60 + 15 %}
+                                        {% set is_late = true %}
+                                        {% set status_display = 'Late' %}
                                     {% endif %}
                                 {% endif %}
-                            {% endfor %}
-                        {% else %}
-                            <!-- NO MATCH: Staff {{ s.EmpID }} not in present_ids -->
+                            {% endif %}
+                        {% endfor %}
+                        {% if not is_present %}
+                            <!-- NO MATCH: Staff {{ s.EmpID }} ({{ staff_name_lower }}) not found in attendance records -->
                         {% endif %}
                     {% endif %}
+
 
                     
                     <tr class="hover:bg-gray-50">
@@ -109,11 +113,11 @@
                                 <span class="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">
                                     On Leave
                                 </span>
-                            {% elif status_display == 'Present' %}
+                            {% elif is_present %}
                                 <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
                                     Present
                                 </span>
-                            {% elif status_display == 'Late' %}
+                            {% elif is_late %}
                                 <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
                                     LATE
                                 </span>
@@ -123,6 +127,7 @@
                                 </span>
                             {% endif %}
                         </td>
+
                         <td class="px-3 py-2 {% if is_late %}font-bold text-red-600{% else %}text-gray-600{% endif %}">
                             {% if is_on_leave %}-{% else %}{{ clock_in_display }}{% endif %}
                         </td>
