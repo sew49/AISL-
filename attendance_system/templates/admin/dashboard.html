@@ -65,21 +65,18 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200">
+                <!-- DEBUG: present_ids = {{ present_ids }} -->
                 {% for s in staff %}
                     {% set is_on_leave = s.EmpID in staff_ids_on_leave_today %}
                     {% set clock_in_display = '-' %}
                     {% set clock_out_display = '-' %}
                     {% set day_type_display = '-' %}
-                    {% set status_display = 'Not Clocked In' %}
                     {% set is_late = false %}
+                    {% set is_present = s.EmpID|string in present_ids %}
                     
-                    {% if not is_on_leave %}
-                        <!-- Direct match: staff_id from attendance vs EmpID from staff -->
-                        {% set is_present = false %}
+                    {% if is_present and not is_on_leave %}
                         {% for a in attendance %}
-                            <!-- DEBUG: Comparing attendance.EmpID={{ a.EmpID }} vs staff.EmpID={{ s.EmpID }} -->
                             {% if a.EmpID == s.EmpID %}
-                                {% set is_present = true %}
                                 {% set clock_in_display = a.ClockIn.strftime('%H:%M') if a.ClockIn else '-' %}
                                 {% set clock_out_display = a.ClockOut.strftime('%H:%M') if a.ClockOut else '-' %}
                                 {% set day_type_display = a.DayType or '-' %}
@@ -91,10 +88,12 @@
                                 {% endif %}
                             {% endif %}
                         {% endfor %}
-                        {% if not is_present %}
-                            <!-- NO MATCH: Staff {{ s.EmpID }} not found in attendance records -->
-                        {% endif %}
                     {% endif %}
+                    
+                    {% if not is_present and not is_on_leave %}
+                        <!-- NO MATCH: Staff {{ s.EmpID }} ({{ s.FirstName }} {{ s.LastName }}) not in present_ids -->
+                    {% endif %}
+
 
 
 
