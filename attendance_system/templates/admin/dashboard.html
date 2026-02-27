@@ -75,11 +75,15 @@
                     
                     {% if not is_on_leave %}
                         <!-- DEBUG: Attendance records: {{ attendance|length }} -->
+                        {% set staff_name_lower = (s.FirstName ~ ' ' ~ s.LastName)|lower|trim %}
+                        {% set found_match = false %}
                         {% for a in attendance %}
-                            <!-- DEBUG: Checking attendance staff_id={{ a.staff_id }} vs s.EmpID={{ s.EmpID }} -->
-                            {% if a.staff_id|string == s.EmpID|string %}
-
+                            {% set att_name_lower = (a.staff.first_name ~ ' ' ~ a.staff.last_name)|lower|trim if a.staff else '' %}
+                            <!-- DEBUG: Checking staff_id={{ a.staff_id|string }} vs EmpID={{ s.EmpID|string }} OR name={{ att_name_lower }} vs {{ staff_name_lower }} -->
+                            {% if not found_match and (a.staff_id|string == s.EmpID|string or att_name_lower == staff_name_lower) %}
+                                {% set found_match = true %}
                                 {% set clock_in_display = a.clock_in.strftime('%H:%M') if a.clock_in else '-' %}
+
 
                                 {% set clock_out_display = a.clock_out.strftime('%H:%M') if a.clock_out else '-' %}
                                 {% set day_type_display = a.day_type or '-' %}
@@ -93,7 +97,11 @@
                                 {% endif %}
                             {% endif %}
                         {% endfor %}
+                        {% if not found_match %}
+                            <!-- NO MATCH: Staff {{ s.EmpID }} ({{ staff_name_lower }}) not found in attendance records -->
+                        {% endif %}
                     {% endif %}
+
                     
                     <tr class="hover:bg-gray-50">
                         <td class="px-3 py-2 font-medium text-gray-900">
