@@ -1229,8 +1229,11 @@ def get_all_attendance():
 def get_today_attendance():
     """Get today's attendance for all staff - with 08:15 AM late flagging"""
     try:
-        today = date.today()
-        attendance = Attendance.query.filter_by(work_date=today).all()
+        # Use Nairobi timezone to match admin dashboard
+        nairobi_tz = pytz.timezone('Africa/Nairobi')
+        today = datetime.now(nairobi_tz).date()
+        attendance = Attendance.query.filter(func.date(Attendance.work_date) == today).all()
+
         staff_members = Staff.query.filter_by(is_active=True).order_by(Staff.employee_code.asc()).all()
         
         # Get approved leaves for today
