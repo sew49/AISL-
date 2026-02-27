@@ -697,7 +697,8 @@ def admin_dashboard():
         
         return render_template('admin/dashboard.html', 
                              staff=staff_members,
-                             attendance=recent_attendance,
+                             attendance=today_attendance,
+
                              historical_leaves=historical_leaves,
                              pending_leaves=pending_leaves,
                              today=today,

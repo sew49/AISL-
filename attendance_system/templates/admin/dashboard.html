@@ -75,7 +75,8 @@
                     
                     {% if not is_on_leave %}
                         {% for a in attendance %}
-                            {% if a.EmpID == s.EmpID %}
+                            {% if a.staff_id == s.EmpID %}
+
                                 {% set clock_in_display = a.clock_in.strftime('%H:%M') if a.clock_in else '-' %}
                                 {% set clock_out_display = a.clock_out.strftime('%H:%M') if a.clock_out else '-' %}
                                 {% set day_type_display = a.day_type or '-' %}
