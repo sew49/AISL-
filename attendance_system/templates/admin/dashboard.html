@@ -74,31 +74,27 @@
                     {% set is_late = false %}
                     
                     {% if not is_on_leave %}
-                        <!-- DEBUG: Attendance records: {{ attendance|length }} -->
-                        {% set staff_name_lower = (s.FirstName ~ ' ' ~ s.LastName)|lower|trim %}
-                        {% set found_match = false %}
-                        {% for a in attendance %}
-                            {% set att_name_lower = (a.staff.first_name ~ ' ' ~ a.staff.last_name)|lower|trim if a.staff else '' %}
-                            <!-- DEBUG: Checking staff_id={{ a.staff_id|string }} vs EmpID={{ s.EmpID|string }} OR name={{ att_name_lower }} vs {{ staff_name_lower }} -->
-                            {% if not found_match and (a.staff_id|string == s.EmpID|string or att_name_lower == staff_name_lower) %}
-                                {% set found_match = true %}
-                                {% set clock_in_display = a.clock_in.strftime('%H:%M') if a.clock_in else '-' %}
-
-
-                                {% set clock_out_display = a.clock_out.strftime('%H:%M') if a.clock_out else '-' %}
-                                {% set day_type_display = a.day_type or '-' %}
-                                {% set status_display = 'Present' %}
-                                {% if a.clock_in %}
-                                    {% set total_mins = a.clock_in.hour * 60 + a.clock_in.minute %}
-                                    {% if total_mins > 8 * 60 + 15 %}
-                                        {% set is_late = true %}
-                                        {% set status_display = 'Late' %}
+                        <!-- DEBUG: present_ids = {{ present_ids }} -->
+                        <!-- DEBUG: Checking s.EmpID|string = {{ s.EmpID|string }} -->
+                        {% if s.EmpID|string in present_ids %}
+                            {% set status_display = 'Present' %}
+                            <!-- Find the attendance record for this employee -->
+                            {% for a in attendance %}
+                                {% if a.EmpID|string == s.EmpID|string %}
+                                    {% set clock_in_display = a.ClockIn.strftime('%H:%M') if a.ClockIn else '-' %}
+                                    {% set clock_out_display = a.ClockOut.strftime('%H:%M') if a.ClockOut else '-' %}
+                                    {% set day_type_display = a.DayType or '-' %}
+                                    {% if a.ClockIn %}
+                                        {% set total_mins = a.ClockIn.hour * 60 + a.ClockIn.minute %}
+                                        {% if total_mins > 8 * 60 + 15 %}
+                                            {% set is_late = true %}
+                                            {% set status_display = 'Late' %}
+                                        {% endif %}
                                     {% endif %}
                                 {% endif %}
-                            {% endif %}
-                        {% endfor %}
-                        {% if not found_match %}
-                            <!-- NO MATCH: Staff {{ s.EmpID }} ({{ staff_name_lower }}) not found in attendance records -->
+                            {% endfor %}
+                        {% else %}
+                            <!-- NO MATCH: Staff {{ s.EmpID }} not in present_ids -->
                         {% endif %}
                     {% endif %}
 
@@ -149,8 +145,8 @@
             {% set late_count = 0 %}
             {% set on_leave_count = staff_ids_on_leave_today|length %}
             {% for a in attendance %}
-                {% if a.clock_in %}
-                    {% set total_mins = a.clock_in.hour * 60 + a.clock_in.minute %}
+                {% if a.ClockIn %}
+                    {% set total_mins = a.ClockIn.hour * 60 + a.ClockIn.minute %}
                     {% if total_mins > 8 * 60 + 15 %}
                         {% set late_count = late_count + 1 %}
                         {% set present_count = present_count + 1 %}

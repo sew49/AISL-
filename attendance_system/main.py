@@ -511,14 +511,20 @@ def admin_dashboard():
         employees = Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all()
         print(f"👥 Active employees found: {len(employees)}")
         
-        # Get last 100 attendance records ordered by timestamp (most recent first)
-        # No date filter - get all recent records
-        attendance = Attendance.query.order_by(Attendance.timestamp.desc()).limit(100).all()
-        print(f"📋 Recent attendance records: {len(attendance)}")
+        # Get today's attendance records using Nairobi timezone
+        today_attendance = Attendance.query.filter(
+            Attendance.WorkDate == today
+        ).all()
+        print(f"📋 Today's attendance records: {len(today_attendance)}")
+        
+        # Create set of present employee IDs (as strings for easy comparison)
+        present_ids = {str(a.EmpID) for a in today_attendance}
+        print(f"✅ Present IDs set: {present_ids}")
         
         # Debug: Also get all attendance to see if there are any records at all
         all_attendance_count = Attendance.query.count()
         print(f"📊 Total attendance records in database: {all_attendance_count}")
+
         
         # Get approved leaves for today
         approved_leaves_today = LeaveRequest.query.filter(
@@ -608,7 +614,8 @@ def admin_dashboard():
         
         return render_template('admin/dashboard.html',
                             staff=employees,
-                            attendance=attendance,
+                            attendance=today_attendance,
+                            present_ids=present_ids,
                             pending_leaves=pending_leaves,
                             today=today,
                             employee_summary=[],
@@ -624,6 +631,7 @@ def admin_dashboard():
                             yearly_stats=yearly_stats,
                             annual_leave_limit=21,
                             sick_leave_limit=14)
+
     except Exception as e:
         print(f"❌ ERROR in admin_dashboard: {str(e)}")
         import traceback
