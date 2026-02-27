@@ -61,10 +61,6 @@ else:
 
 db = SQLAlchemy(app)
 
-# Add this right after db = SQLAlchemy(app)
-with app.app_context():
-    db.create_all()
-    print("✅ Database tables created successfully!")
 
 # Supabase config
 SUPABASE_URL = 'https://sfwhsgrphfrsckzqquxp.supabase.co'
@@ -1674,6 +1670,10 @@ def reset_annual_leave():
 # =====================================================
 
 if __name__ == '__main__':
+    # Get port first - Render requires this
+    port = int(os.environ.get('PORT', 5000))
+    debug_mode = os.environ.get('PORT') is None
+    
     db_type = "PostgreSQL (Supabase)" if "postgresql" in DATABASE_URL else "SQLite (Local)"
     print(f"\n{'='*60}")
     print("ATTENDANCE SYSTEM STARTUP")
@@ -1681,15 +1681,18 @@ if __name__ == '__main__':
     print(f"Database: {db_type}")
     print(f"URL: {DATABASE_URL[:50]}...")
     print(f"Late Threshold: {LATE_THRESHOLD}")
+    print(f"Port: {port}")
     print(f"{'='*60}\n")
     
+    # Initialize database before starting server
     with app.app_context():
-        db.create_all()
-        print("✅ Database tables created")
-        seed_staff()
+        try:
+            db.create_all()
+            print("✅ Database tables created")
+            seed_staff()
+        except Exception as e:
+            print(f"⚠️ Database initialization warning: {e}")
     
-    print("🚀 Starting server...")
-    port = int(os.environ.get('PORT', 5000))
-    # Disable debug mode in production (Render sets PORT env var)
-    debug_mode = os.environ.get('PORT') is None
+    print(f"🚀 Starting server on port {port}...")
+    # Start server immediately - Render needs the port open ASAP
     app.run(debug=debug_mode, host='0.0.0.0', port=port)
