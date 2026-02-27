@@ -190,8 +190,9 @@
             </div>
             
             <p class="text-xs text-gray-400 mt-3 text-center">
-                Auto-refreshes every 30 seconds
+                Auto-refreshes every 10 seconds
             </p>
+
         </section>
     </main>
 
@@ -380,10 +381,12 @@ employeeSelect.addEventListener('change', (e) => {
                 
                 if (data.success) {
                     showAlert(`✅ Clocked in successfully at ${now}`, 'success');
-                    fetchTodayStatus();
+                    // Force immediate refresh with small delay to ensure DB write completes
+                    setTimeout(() => fetchTodayStatus(), 500);
                 } else {
                     showAlert(`❌ ${data.error || 'Failed to clock in'}`, 'error');
                 }
+
             } catch (error) {
                 console.error('Error clocking in:', error);
                 showAlert('❌ Failed to connect to server', 'error');
@@ -423,10 +426,12 @@ employeeSelect.addEventListener('change', (e) => {
                     
                     if (updateData.success) {
                         showAlert(`✅ Clocked out successfully at ${now}`, 'success');
-                        fetchTodayStatus();
+                        // Force immediate refresh with small delay to ensure DB write completes
+                        setTimeout(() => fetchTodayStatus(), 500);
                     } else {
                         showAlert(`❌ ${updateData.error || 'Failed to clock out'}`, 'error');
                     }
+
                 } else {
                     showAlert('❌ No clock-in record found. Please clock in first.', 'error');
                 }
@@ -495,7 +500,10 @@ employeeSelect.addEventListener('change', (e) => {
         // Fetch today's status using new API
         async function fetchTodayStatus() {
             try {
-                const response = await fetch(`${API_BASE}/api/attendance/today`);
+                // Add cache-busting timestamp to prevent browser caching
+                const timestamp = new Date().getTime();
+                const response = await fetch(`${API_BASE}/api/attendance/today?_=${timestamp}`);
+
                 const data = await response.json();
                 
                 if (data.success && data.employees) {
@@ -583,7 +591,15 @@ employeeSelect.addEventListener('change', (e) => {
         }
 
         // Refresh button
-        refreshBtn.addEventListener('click', fetchTodayStatus);
+        refreshBtn.addEventListener('click', () => {
+            // Force immediate refresh with animation
+            refreshBtn.querySelector('svg').classList.add('animate-spin');
+            fetchTodayStatus().then(() => {
+                setTimeout(() => {
+                    refreshBtn.querySelector('svg').classList.remove('animate-spin');
+                }, 500);
+            });
+        });
 
         // Initialize
         setHeaderDate();
@@ -591,8 +607,9 @@ employeeSelect.addEventListener('change', (e) => {
         fetchEmployees();
         fetchTodayStatus();
         
-        // Auto-refresh status every 30 seconds
-        setInterval(fetchTodayStatus, 30000);
+        // Auto-refresh status every 10 seconds for better sync
+        setInterval(fetchTodayStatus, 10000);
+
     </script>
 </body>
 </html>

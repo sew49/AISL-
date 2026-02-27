@@ -1,19 +1,15 @@
 # Render Deployment Guide
 
-## Quick Fix for ModuleNotFoundError
+## Quick Fix for "Port scan timeout reached, no open HTTP ports detected"
 
-The error `ModuleNotFoundError: No module named 'main'` occurs because Gunicorn is trying to import from `main.py` but your Flask app is in `app.py`.
+This error occurs when the app doesn't listen on the correct port. Render provides a `PORT` environment variable that your app must use.
 
-### Solution
+### ✅ FIXED: The app now uses the PORT environment variable
 
-Change your Gunicorn Start Command from:
-```
-gunicorn main:app
-```
-
-To:
-```
-gunicorn app:app
+The `app.py` has been updated to:
+```python
+port = int(os.environ.get('PORT', 5000))
+app.run(debug=debug_mode, host='0.0.0.0', port=port)
 ```
 
 ## Render Settings
@@ -23,26 +19,23 @@ In your Render dashboard, set:
 | Setting | Value |
 |---------|-------|
 | **Build Command** | `pip install -r requirements.txt` |
-| **Start Command** | `gunicorn app:app` |
+| **Start Command** | `python app.py` |
 | **Root Directory** | `attendance_system` |
-
-Or if you put contents at root:
-
-| Setting | Value |
-|---------|-------|
-| **Build Command** | `pip install -r requirements.txt` |
-| **Start Command** | `gunicorn app:app` |
 
 ## Environment Variables
 
 Add these in Render:
 
-- `DATABASE_URL`: Your PostgreSQL connection string (from Supabase)
-- `SECRET_KEY`: A random secret key for sessions
+| Variable | Value |
+|----------|-------|
+| `DATABASE_URL` | Your PostgreSQL connection string (from Supabase) |
+| `SECRET_KEY` | A random secret key for sessions (e.g., `your-secret-key-here`) |
 
 ## Files Already Configured
 
-Your `attendance_system/app.py` already has:
+Your `attendance_system/app.py` now has:
+- ✅ Uses `PORT` environment variable (defaults to 5000 locally)
+- ✅ Disables debug mode automatically when PORT is set (production)
 - ✅ `db.create_all()` at module level for Gunicorn
 - ✅ PostgreSQL SSL configuration
 - ✅ Admin login with GET/POST methods
@@ -57,3 +50,12 @@ sqlalchemy==2.0.20
 python-dotenv==1.0.0
 psycopg2-binary==2.9.9
 gunicorn==21.2.0
+```
+
+## Troubleshooting
+
+If you still get port errors:
+1. Check that `PORT` environment variable is set in Render dashboard
+2. Verify the Start Command is `python app.py` (not `gunicorn app:app`)
+3. Make sure the Root Directory is set to `attendance_system`
+4. Redeploy the service after making changes
