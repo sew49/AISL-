@@ -67,11 +67,7 @@
                 <tbody class="divide-y divide-gray-200">
                 {% for s in staff %}
                     {% set is_on_leave = s.EmpID in staff_ids_on_leave_today %}
-                    {% set clock_in_display = '-' %}
-                    {% set clock_out_display = '-' %}
-                    {% set day_type_display = '-' %}
-                    {% set is_late = false %}
-                    {% set is_present = false %}
+                    {% set ns = namespace(is_present=false, clock_in='-', clock_out='-', day_type='-', is_late=false) %}
                     {% set staff_name_clean = (s.FirstName ~ ' ' ~ s.LastName)|lower|replace(' ', '')|trim %}
                     
                     {% for a in attendance %}
@@ -79,24 +75,25 @@
                         {% set id_match = a.EmpID|string == s.EmpID|string %}
                         {% set name_match = att_name_clean == staff_name_clean %}
                         
-                        {% if not is_present and (id_match or name_match) %}
-                            {% set is_present = true %}
-                            {% set clock_in_display = a.ClockIn.strftime('%H:%M') if a.ClockIn else '-' %}
-                            {% set clock_out_display = a.ClockOut.strftime('%H:%M') if a.ClockOut else '-' %}
-                            {% set day_type_display = a.DayType or '-' %}
+                        {% if not ns.is_present and (id_match or name_match) %}
+                            {% set ns.is_present = true %}
+                            {% set ns.clock_in = a.ClockIn.strftime('%H:%M') if a.ClockIn else '-' %}
+                            {% set ns.clock_out = a.ClockOut.strftime('%H:%M') if a.ClockOut else '-' %}
+                            {% set ns.day_type = a.DayType or '-' %}
                             {% if a.ClockIn %}
                                 {% set total_mins = a.ClockIn.hour * 60 + a.ClockIn.minute %}
                                 {% if total_mins > 8 * 60 + 15 %}
-                                    {% set is_late = true %}
+                                    {% set ns.is_late = true %}
                                 {% endif %}
                             {% endif %}
                             <!-- MATCHED: {{ s.FirstName }} {{ s.LastName }} via {% if id_match %}ID{% else %}Name{% endif %} -->
                         {% endif %}
                     {% endfor %}
                     
-                    {% if not is_present and not is_on_leave %}
+                    {% if not ns.is_present and not is_on_leave %}
                         <!-- NO MATCH: Staff {{ s.EmpID }} ({{ staff_name_clean }}) not found -->
                     {% endif %}
+
 
 
 
@@ -114,11 +111,11 @@
                                 <span class="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">
                                     On Leave
                                 </span>
-                            {% elif is_present %}
+                            {% elif ns.is_present %}
                                 <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
                                     Present
                                 </span>
-                            {% elif is_late %}
+                            {% elif ns.is_late %}
                                 <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
                                     LATE
                                 </span>
@@ -129,16 +126,17 @@
                             {% endif %}
                         </td>
 
-                        <td class="px-3 py-2 {% if is_late %}font-bold text-red-600{% else %}text-gray-600{% endif %}">
-                            {% if is_on_leave %}-{% else %}{{ clock_in_display }}{% endif %}
+                        <td class="px-3 py-2 {% if ns.is_late %}font-bold text-red-600{% else %}text-gray-600{% endif %}">
+                            {% if is_on_leave %}-{% else %}{{ ns.clock_in }}{% endif %}
                         </td>
                         <td class="px-3 py-2 text-gray-600">
-                            {% if is_on_leave %}-{% else %}{{ clock_out_display }}{% endif %}
+                            {% if is_on_leave %}-{% else %}{{ ns.clock_out }}{% endif %}
                         </td>
                         <td class="px-3 py-2 text-gray-600">
-                            {% if is_on_leave %}On Leave{% else %}{{ day_type_display }}{% endif %}
+                            {% if is_on_leave %}On Leave{% else %}{{ ns.day_type }}{% endif %}
                         </td>
                     </tr>
+
                     {% endfor %}
                 </tbody>
             </table>
