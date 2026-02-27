@@ -403,43 +403,35 @@ employeeSelect.addEventListener('change', (e) => {
 
             try {
                 const today = new Date().toISOString().split('T')[0];
-                const response = await fetch(`${API_BASE}/api/attendance?emp_id=${empId}&start_date=${today}&end_date=${today}`);
+                const now = new Date().toTimeString().slice(0, 5);
+                
+                // Use POST endpoint with clock_out to record clock out
+                const response = await fetch(`${API_BASE}/api/attendance`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        emp_id: parseInt(empId),
+                        work_date: today,
+                        clock_out: now
+                    })
+                });
+
                 const data = await response.json();
                 
-                if (data.success && data.attendance && data.attendance.length > 0) {
-                    const attendance = data.attendance[0];
-                    
-                    if (attendance.clock_out) {
-                        showAlert('⚠️ Already clocked out today', 'warning');
-                        return;
-                    }
-
-                    const now = new Date().toTimeString().slice(0, 5);
-                    
-                    const updateResponse = await fetch(`${API_BASE}/api/attendance/${attendance.attendance_id}`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ clock_out: now })
-                    });
-
-                    const updateData = await updateResponse.json();
-                    
-                    if (updateData.success) {
-                        showAlert(`✅ Clocked out successfully at ${now}`, 'success');
-                        // Force immediate refresh with small delay to ensure DB write completes
-                        setTimeout(() => fetchTodayStatus(), 500);
-                    } else {
-                        showAlert(`❌ ${updateData.error || 'Failed to clock out'}`, 'error');
-                    }
-
+                if (data.success) {
+                    showAlert(`✅ Clocked out successfully at ${now}`, 'success');
+                    // Force immediate refresh with small delay to ensure DB write completes
+                    setTimeout(() => fetchTodayStatus(), 500);
                 } else {
-                    showAlert('❌ No clock-in record found. Please clock in first.', 'error');
+                    showAlert(`❌ ${data.error || 'Failed to clock out'}`, 'error');
                 }
+
             } catch (error) {
                 console.error('Error clocking out:', error);
                 showAlert('❌ Failed to connect to server', 'error');
             }
         });
+
 
         // Leave Request Form Submit
         leaveForm.addEventListener('submit', async (e) => {
