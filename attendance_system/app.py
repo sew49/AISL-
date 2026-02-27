@@ -7,10 +7,23 @@ load_dotenv() # This must come before using os.getenv
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY') or 'dev_fallback_key_change_in_production'
 
+# Enable CORS for all domains (needed for Render deployment)
+from flask_cors import CORS
+CORS(app, resources={r"/api/*": {"origins": "*"}})
+
+# Add cache control headers to prevent caching
+@app.after_request
+def add_header(response):
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, post-check=0, pre-check=0, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '-1'
+    return response
+
 # Continue with other imports after app and secret_key are defined
 from datetime import datetime, date, time, timedelta
 from flask import render_template, request, jsonify, redirect, url_for, session, make_response
 from flask_sqlalchemy import SQLAlchemy
+
 
 # =====================================================
 # CONFIGURATION
