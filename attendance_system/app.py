@@ -535,7 +535,10 @@ def admin_dashboard():
         print(f"🔍 Admin is looking for: {today}")
         
         # Use func.date() to ensure proper date comparison in PostgreSQL
-        today_attendance = Attendance.query.filter(func.date(Attendance.work_date) == today).all()
+        # Eager load staff relationship to avoid N+1 query
+        from sqlalchemy.orm import joinedload
+        today_attendance = Attendance.query.options(joinedload(Attendance.staff)).filter(func.date(Attendance.work_date) == today).all()
+
         
         # Debug: Print how many records found
         print(f"📊 Found {len(today_attendance)} attendance records for today")
