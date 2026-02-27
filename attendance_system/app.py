@@ -23,6 +23,8 @@ def add_header(response):
 from datetime import datetime, date, time, timedelta
 from flask import render_template, request, jsonify, redirect, url_for, session, make_response
 from flask_sqlalchemy import SQLAlchemy
+import pytz
+
 
 
 # =====================================================
@@ -523,8 +525,11 @@ def admin_dashboard():
     
     try:
         staff_members = Staff.query.filter_by(is_active=True).order_by(Staff.employee_code.asc()).all()
-        today = date.today()
+        # Use Nairobi timezone for today to match staff clock-ins
+        nairobi_tz = pytz.timezone('Africa/Nairobi')
+        today = datetime.now(nairobi_tz).date()
         today_attendance = Attendance.query.filter_by(work_date=today).all()
+
         
         # Handle month filter for leave requests
         selected_month = request.args.get('month_filter', '')
