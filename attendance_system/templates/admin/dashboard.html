@@ -229,18 +229,22 @@
         }
         
         // Also handle form submission to set the correct total_days value
-        document.querySelector('form[action*="add_historical_leave"]').addEventListener('submit', function(e) {
-            var select = document.getElementById('total_days');
-            var otherInput = document.getElementById('other_days');
-            if (select.value === 'other') {
-                // Replace 'other' with the actual entered value
-                var hiddenInput = document.createElement('input');
-                hiddenInput.type = 'hidden';
-                hiddenInput.name = 'total_days';
-                hiddenInput.value = otherInput.value;
-                this.appendChild(hiddenInput);
-            }
-        });
+        var historicalForm = document.querySelector('form[action*="add_historical_leave"]');
+        if (historicalForm) {
+            historicalForm.addEventListener('submit', function(e) {
+                var select = document.getElementById('total_days');
+                var otherInput = document.getElementById('other_days');
+                if (select.value === 'other') {
+                    // Replace 'other' with the actual entered value
+                    var hiddenInput = document.createElement('input');
+                    hiddenInput.type = 'hidden';
+                    hiddenInput.name = 'total_days';
+                    hiddenInput.value = otherInput.value;
+                    this.appendChild(hiddenInput);
+                }
+            });
+        }
+
     </script>
     
     <!-- Pending Leave Requests -->
