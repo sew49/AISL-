@@ -74,10 +74,13 @@
                     {% set is_late = false %}
                     
                     {% if not is_on_leave %}
+                        <!-- DEBUG: Attendance records: {{ attendance|length }} -->
                         {% for a in attendance %}
-                            {% if a.staff_id == s.EmpID %}
+                            <!-- DEBUG: Checking attendance staff_id={{ a.staff_id }} vs s.EmpID={{ s.EmpID }} -->
+                            {% if a.staff_id|string == s.EmpID|string %}
 
                                 {% set clock_in_display = a.clock_in.strftime('%H:%M') if a.clock_in else '-' %}
+
                                 {% set clock_out_display = a.clock_out.strftime('%H:%M') if a.clock_out else '-' %}
                                 {% set day_type_display = a.day_type or '-' %}
                                 {% set status_display = 'Present' %}
