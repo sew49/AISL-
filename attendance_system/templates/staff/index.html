@@ -204,6 +204,12 @@
         // Use relative URL for API calls (works in both local and production)
         const API_BASE = '';
         
+        // Force page reload if cached version is detected
+        if (window.performance && window.performance.navigation.type === window.performance.navigation.TYPE_BACK_FORWARD) {
+            location.reload(true);
+        }
+
+        
         // DOM Elements
         const employeeSearch = document.getElementById('employeeSearch');
         const employeeSelect = document.getElementById('employeeSelect');
@@ -281,7 +287,15 @@
         // Fetch employees
         async function fetchEmployees() {
             try {
-                const response = await fetch(`${API_BASE}/api/employees`);
+                const timestamp = new Date().getTime();
+                const response = await fetch(`${API_BASE}/api/employees?_=${timestamp}`, {
+                    method: 'GET',
+                    headers: {
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache'
+                    },
+                    cache: 'no-store'
+                });
                 const data = await response.json();
                 
                 if (data.success && data.employees) {
@@ -292,6 +306,7 @@
                 console.error('Error fetching employees:', error);
             }
         }
+
 
         // Render employee dropdown
         function renderEmployeeDropdown(filter = '') {
@@ -373,7 +388,12 @@ employeeSelect.addEventListener('change', (e) => {
             try {
                 const response = await fetch(`${API_BASE}/api/attendance`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache'
+                    },
+                    cache: 'no-store',
                     body: JSON.stringify({
                         emp_id: parseInt(empId),
                         work_date: today,
@@ -387,6 +407,8 @@ employeeSelect.addEventListener('change', (e) => {
                     showAlert(`✅ Clocked in successfully at ${now}`, 'success');
                     // Force immediate refresh with small delay to ensure DB write completes
                     setTimeout(() => fetchTodayStatus(), 500);
+                    // Double refresh after 2 seconds to ensure sync across instances
+                    setTimeout(() => fetchTodayStatus(), 2000);
                 } else {
                     showAlert(`❌ ${data.error || 'Failed to clock in'}`, 'error');
                 }
@@ -396,6 +418,7 @@ employeeSelect.addEventListener('change', (e) => {
                 showAlert('❌ Failed to connect to server', 'error');
             }
         });
+
 
         // Clock Out
         clockOutBtn.addEventListener('click', async () => {
@@ -412,7 +435,12 @@ employeeSelect.addEventListener('change', (e) => {
                 // Use POST endpoint with clock_out to record clock out
                 const response = await fetch(`${API_BASE}/api/attendance`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache'
+                    },
+                    cache: 'no-store',
                     body: JSON.stringify({
                         emp_id: parseInt(empId),
                         work_date: today,
@@ -426,6 +454,8 @@ employeeSelect.addEventListener('change', (e) => {
                     showAlert(`✅ Clocked out successfully at ${now}`, 'success');
                     // Force immediate refresh with small delay to ensure DB write completes
                     setTimeout(() => fetchTodayStatus(), 500);
+                    // Double refresh after 2 seconds to ensure sync across instances
+                    setTimeout(() => fetchTodayStatus(), 2000);
                 } else {
                     showAlert(`❌ ${data.error || 'Failed to clock out'}`, 'error');
                 }
@@ -435,6 +465,7 @@ employeeSelect.addEventListener('change', (e) => {
                 showAlert('❌ Failed to connect to server', 'error');
             }
         });
+
 
 
         // Leave Request Form Submit
@@ -498,9 +529,17 @@ employeeSelect.addEventListener('change', (e) => {
             try {
                 // Add cache-busting timestamp to prevent browser caching
                 const timestamp = new Date().getTime();
-                const response = await fetch(`${API_BASE}/api/attendance/today?_=${timestamp}`);
+                const response = await fetch(`${API_BASE}/api/attendance/today?_=${timestamp}`, {
+                    method: 'GET',
+                    headers: {
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache'
+                    },
+                    cache: 'no-store'
+                });
 
                 const data = await response.json();
+
                 
                 if (data.success && data.employees) {
                     const rows = data.employees.map(emp => {
@@ -590,6 +629,12 @@ employeeSelect.addEventListener('change', (e) => {
         refreshBtn.addEventListener('click', () => {
             // Force immediate refresh with animation
             refreshBtn.querySelector('svg').classList.add('animate-spin');
+            // Clear any cached data first
+            if ('caches' in window) {
+                caches.keys().then(names => {
+                    names.forEach(name => caches.delete(name));
+                });
+            }
             fetchTodayStatus().then(() => {
                 setTimeout(() => {
                     refreshBtn.querySelector('svg').classList.remove('animate-spin');
@@ -597,14 +642,23 @@ employeeSelect.addEventListener('change', (e) => {
             });
         });
 
+
         // Initialize
         setHeaderDate();
         setGreeting();
         fetchEmployees();
         fetchTodayStatus();
         
-        // Auto-refresh status every 10 seconds for better sync
-        setInterval(fetchTodayStatus, 10000);
+        // Auto-refresh status every 5 seconds for real-time sync across instances
+        setInterval(fetchTodayStatus, 5000);
+        
+        // Visibility API - refresh when tab becomes visible
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                fetchTodayStatus();
+            }
+        });
+
 
     </script>
 </body>
