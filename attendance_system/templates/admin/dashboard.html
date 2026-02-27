@@ -68,20 +68,20 @@
                 {% for s in staff %}
                     {% set is_on_leave = s.EmpID in staff_ids_on_leave_today %}
                     {% set ns = namespace(is_present=false, clock_in='-', clock_out='-', day_type='-', is_late=false) %}
-                    {% set staff_name_clean = (s.FirstName ~ ' ' ~ s.LastName)|lower|replace(' ', '')|trim %}
+                    {% set s_name = (s.FirstName ~ ' ' ~ s.LastName)|lower|replace(' ', '')|trim %}
                     
                     {% for a in attendance %}
-                        {% set att_name_clean = (a.employee.FirstName ~ ' ' ~ a.employee.LastName)|lower|replace(' ', '')|trim if a.employee else '' %}
-                        {% set id_match = a.EmpID|string == s.EmpID|string %}
-                        {% set name_match = att_name_clean == staff_name_clean %}
+                        {% set a_name = (a.staff.first_name ~ ' ' ~ a.staff.last_name)|lower|replace(' ', '')|trim if a.staff else '' %}
+                        {% set id_match = a.staff_id|string == s.EmpID|string %}
+                        {% set name_match = a_name == s_name %}
                         
                         {% if not ns.is_present and (id_match or name_match) %}
                             {% set ns.is_present = true %}
-                            {% set ns.clock_in = a.ClockIn.strftime('%H:%M') if a.ClockIn else '-' %}
-                            {% set ns.clock_out = a.ClockOut.strftime('%H:%M') if a.ClockOut else '-' %}
-                            {% set ns.day_type = a.DayType or '-' %}
-                            {% if a.ClockIn %}
-                                {% set total_mins = a.ClockIn.hour * 60 + a.ClockIn.minute %}
+                            {% set ns.clock_in = a.clock_in.strftime('%H:%M') if a.clock_in else '-' %}
+                            {% set ns.clock_out = a.clock_out.strftime('%H:%M') if a.clock_out else '-' %}
+                            {% set ns.day_type = a.day_type or '-' %}
+                            {% if a.clock_in %}
+                                {% set total_mins = a.clock_in.hour * 60 + a.clock_in.minute %}
                                 {% if total_mins > 8 * 60 + 15 %}
                                     {% set ns.is_late = true %}
                                 {% endif %}
@@ -91,8 +91,9 @@
                     {% endfor %}
                     
                     {% if not ns.is_present and not is_on_leave %}
-                        <!-- NO MATCH: Staff {{ s.EmpID }} ({{ staff_name_clean }}) not found -->
+                        <!-- NO MATCH: Staff {{ s.EmpID }} ({{ s_name }}) not found -->
                     {% endif %}
+
 
 
 
