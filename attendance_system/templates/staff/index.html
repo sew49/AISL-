@@ -194,8 +194,9 @@
             </div>
             
             <p class="text-xs text-gray-400 mt-3 text-center">
-                Auto-refreshes every 10 seconds
+                Auto-refreshes every 5 seconds | v2.1-sync-fix
             </p>
+
 
         </section>
     </main>
@@ -529,6 +530,7 @@ employeeSelect.addEventListener('change', (e) => {
             try {
                 // Add cache-busting timestamp to prevent browser caching
                 const timestamp = new Date().getTime();
+                console.log(`[${new Date().toLocaleTimeString()}] Fetching status...`);
                 const response = await fetch(`${API_BASE}/api/attendance/today?_=${timestamp}`, {
                     method: 'GET',
                     headers: {
@@ -539,10 +541,16 @@ employeeSelect.addEventListener('change', (e) => {
                 });
 
                 const data = await response.json();
+                console.log(`[${new Date().toLocaleTimeString()}] Status received:`, data.employees?.length || 0, 'employees');
+
 
                 
                 if (data.success && data.employees) {
+                    // Log first few employees for debugging
+                    console.log('First 3 employees:', data.employees.slice(0, 3).map(e => ({name: e.employee_name, status: e.status, clock_in: e.clock_in})));
+                    
                     const rows = data.employees.map(emp => {
+
                         let statusBadge = '';
                         let clockInDisplay = '-';
                         let clockOutDisplay = '-';
