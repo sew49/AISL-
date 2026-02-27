@@ -24,6 +24,8 @@ from datetime import datetime, date, time, timedelta
 from flask import render_template, request, jsonify, redirect, url_for, session, make_response
 from flask_sqlalchemy import SQLAlchemy
 import pytz
+from sqlalchemy import func
+
 
 
 
@@ -528,7 +530,16 @@ def admin_dashboard():
         # Use Nairobi timezone for today to match staff clock-ins
         nairobi_tz = pytz.timezone('Africa/Nairobi')
         today = datetime.now(nairobi_tz).date()
-        today_attendance = Attendance.query.filter_by(work_date=today).all()
+        
+        # Debug: Print what date we're looking for
+        print(f"🔍 Admin is looking for: {today}")
+        
+        # Use func.date() to ensure proper date comparison in PostgreSQL
+        today_attendance = Attendance.query.filter(func.date(Attendance.work_date) == today).all()
+        
+        # Debug: Print how many records found
+        print(f"📊 Found {len(today_attendance)} attendance records for today")
+
 
         
         # Handle month filter for leave requests
