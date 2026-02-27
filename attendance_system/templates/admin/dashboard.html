@@ -74,16 +74,14 @@
                     {% set is_late = false %}
                     
                     {% if not is_on_leave %}
-                        <!-- DEBUG: present_ids = {{ present_ids }} -->
-                        <!-- DEBUG: Checking s.EmpID|string = {{ s.EmpID|string }} -->
+                        <!-- Primary match: lowercase name normalization -->
+                        {% set normalized_staff_name = (s.FirstName ~ ' ' ~ s.LastName)|lower|trim %}
                         {% set is_present = false %}
-                        {% set staff_name_lower = (s.FirstName ~ ' ' ~ s.LastName)|lower|trim %}
                         {% for a in attendance %}
-                            {% set att_name_lower = (a.employee.FirstName ~ ' ' ~ a.employee.LastName)|lower|trim if a.employee else '' %}
-                            <!-- DEBUG: Comparing staff_id={{ a.EmpID|string }} vs EmpID={{ s.EmpID|string }} OR name={{ att_name_lower }} vs {{ staff_name_lower }} -->
-                            {% if not is_present and (a.EmpID|string == s.EmpID|string or att_name_lower == staff_name_lower) %}
+                            {% set normalized_att_name = (a.employee.FirstName ~ ' ' ~ a.employee.LastName)|lower|trim if a.employee else '' %}
+                            <!-- DEBUG: Comparing att_name={{ normalized_att_name }} vs staff_name={{ normalized_staff_name }} OR id={{ a.EmpID|string }} vs {{ s.EmpID|string }} -->
+                            {% if not is_present and (normalized_att_name == normalized_staff_name or a.EmpID|string == s.EmpID|string) %}
                                 {% set is_present = true %}
-                                {% set status_display = 'Present' %}
                                 {% set clock_in_display = a.ClockIn.strftime('%H:%M') if a.ClockIn else '-' %}
                                 {% set clock_out_display = a.ClockOut.strftime('%H:%M') if a.ClockOut else '-' %}
                                 {% set day_type_display = a.DayType or '-' %}
@@ -91,15 +89,15 @@
                                     {% set total_mins = a.ClockIn.hour * 60 + a.ClockIn.minute %}
                                     {% if total_mins > 8 * 60 + 15 %}
                                         {% set is_late = true %}
-                                        {% set status_display = 'Late' %}
                                     {% endif %}
                                 {% endif %}
                             {% endif %}
                         {% endfor %}
                         {% if not is_present %}
-                            <!-- NO MATCH: Staff {{ s.EmpID }} ({{ staff_name_lower }}) not found in attendance records -->
+                            <!-- NO MATCH: Staff {{ s.EmpID }} ({{ normalized_staff_name }}) not found in attendance records -->
                         {% endif %}
                     {% endif %}
+
 
 
                     
