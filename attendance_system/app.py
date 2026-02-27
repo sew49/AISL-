@@ -468,6 +468,31 @@ def debug_status():
                           supabase_url=SUPABASE_URL)
 
 
+@app.route('/health')
+def health_check():
+    """Health check endpoint for Render"""
+    try:
+        # Test database connection
+        staff_count = Staff.query.count()
+        attendance_count = Attendance.query.filter_by(work_date=date.today()).count()
+        
+        return jsonify({
+            'status': 'healthy',
+            'database': 'connected',
+            'staff_count': staff_count,
+            'today_attendance_count': attendance_count,
+            'timestamp': datetime.utcnow().isoformat()
+        }), 200
+    except Exception as e:
+        return jsonify({
+            'status': 'unhealthy',
+            'database': 'error',
+            'error': str(e),
+            'timestamp': datetime.utcnow().isoformat()
+        }), 500
+
+
+
 @app.route('/staff')
 def staff_portal():
     """Staff portal"""
