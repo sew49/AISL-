@@ -176,6 +176,57 @@
         </div>
     </section>
     
+    <!-- Upcoming Approved Leave -->
+    <section class="bg-white rounded-xl card-shadow p-4 md:p-6 mb-4">
+        <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+            <svg class="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+            </svg>
+            Upcoming Approved Leave
+        </h2>
+        
+        {% if upcoming_leaves %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-gray-50">
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Employee Name</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Leave Type</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Start Date</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">End Date</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Total Days</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    {% for leave in upcoming_leaves %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-3 py-2 font-medium text-gray-900">
+                            {{ leave.staff.first_name }} {{ leave.staff.last_name }}
+                        </td>
+                        <td class="px-3 py-2">
+                            <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                {{ leave.leave_type }}
+                            </span>
+                        </td>
+                        <td class="px-3 py-2 text-gray-600">
+                            {{ leave.start_date.strftime('%d/%m/%Y') }}
+                        </td>
+                        <td class="px-3 py-2 text-gray-600">
+                            {{ leave.end_date.strftime('%d/%m/%Y') }}
+                        </td>
+                        <td class="px-3 py-2 text-gray-600 font-medium">
+                            {{ leave.total_days }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-gray-500 text-center py-4">No upcoming approved leave scheduled.</p>
+        {% endif %}
+    </section>
+    
     <!-- Manual Leave Entry Form (2021-2025) -->
     <div class="mt-8 bg-white p-6 rounded-lg shadow-md">
         <h3 class="text-xl font-bold mb-4">Admin: Manual Leave Entry (2021-2025)</h3>
