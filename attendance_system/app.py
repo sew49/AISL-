@@ -89,8 +89,8 @@ class Staff(db.Model):
     department = db.Column(db.String(50))
     join_date = db.Column(db.Date, nullable=False)
     is_active = db.Column(db.Boolean, default=True)
-    leave_balance = db.Column(db.Integer, default=21)  # Annual leave (21 days)
-    sick_leave_balance = db.Column(db.Integer, default=7)  # Sick leave (7 days)
+    leave_balance = db.Column(db.Float, default=21)  # Annual leave (21 days)
+    sick_leave_balance = db.Column(db.Float, default=7)  # Sick leave (7 days)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Property aliases for uppercase attribute names (used in templates)
@@ -1126,7 +1126,13 @@ def annual_report():
 def get_employees():
     """Get all employees - with 08:15 AM late flagging"""
     try:
+        # Debug: Print total count in database
+        total_in_db = Staff.query.count()
+        active_in_db = Staff.query.filter_by(is_active=True).count()
+        print(f"DEBUG: Total in DB: {total_in_db}, Active: {active_in_db}")
+        
         staff_members = Staff.query.filter_by(is_active=True).order_by(Staff.employee_code.asc()).all()
+        print(f"DEBUG: Query returned {len(staff_members)} staff members")
         
         # Check today's attendance for late arrivals
         today = date.today()

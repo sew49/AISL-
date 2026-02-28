@@ -199,7 +199,7 @@ def get_today_attendance():
         all_recent_attendance = Attendance.query.filter(
             Attendance.WorkDate >= week_ago,
             Attendance.WorkDate <= today
-        ).order_by(Attendance.WorkDate.desc(), Attendance.timestamp.desc()).all()
+        ).order_by(Attendance.WorkDate.desc()).all()
         
         # Get leave requests for today
         leave_requests = LeaveRequest.query.filter(
