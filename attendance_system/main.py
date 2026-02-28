@@ -269,6 +269,34 @@ class Notification(db.Model):
 
 
 # =====================================================
+# KENYAN PUBLIC HOLIDAYS 2026
+# =====================================================
+
+KENYAN_HOLIDAYS_2026 = [
+    date(2026, 1, 1),   # New Year's Day
+    date(2026, 3, 1),   # Moi's Birthday (first Saturday in March - approximated)
+    date(2026, 3, 27),  # Good Friday (approximate)
+    date(2026, 3, 30),  # Easter Monday (approximate)
+    date(2026, 4, 1),   # April Fool's Day
+    date(2026, 5, 1),   # Labour Day
+    date(2026, 6, 1),   # Children's Day
+    date(2026, 6, 20),  # Eid al-Fitr (approximate - varies by lunar calendar)
+    date(2026, 7, 31),  # Eid al-Adha (approximate - varies by lunar calendar)
+    date(2026, 10, 10), # Kenyatta Day
+    date(2026, 10, 20), # Mashujaa Day
+    date(2026, 12, 12), # Jamhuri Day
+    date(2026, 12, 25), # Christmas Day
+    date(2026, 12, 26), # Boxing Day
+]
+
+# Also include end of 2025 holidays that affect 2026 leave calculations
+KENYAN_HOLIDAYS_2025 = [
+    date(2025, 12, 25), # Christmas Day
+    date(2025, 12, 26), # Boxing Day
+]
+
+
+# =====================================================
 # HELPER FUNCTIONS
 # =====================================================
 
@@ -288,6 +316,66 @@ def calculate_leave_days_python(start_date, end_date):
         current_date = date.fromordinal(current_date.toordinal() + 1)
     
     return total_days
+
+
+def calculate_leave_with_rate_multiplier(start_date, end_date, multiplier=1.0):
+    """
+    Two-step leave calculation using Rate Multiplier logic.
+    
+    Step 1: Calendar Loop (Base Weighting)
+    - Mon-Fri: +1.0
+    - Saturdays: +0.5
+    - Sundays & Public Holidays: +0.0
+    
+    Step 2: Admin Override (The Multiplier)
+    - Full Day (1.0): FinalTotal = CalculatedSum * 1.0
+    - Half Day (0.5): FinalTotal = CalculatedSum * 0.5
+    
+    Args:
+        start_date: Start date of leave
+        end_date: End date of leave  
+        multiplier: 1.0 for Full Day, 0.5 for Half Day
+        
+    Returns:
+        float: Final leave days after applying multiplier
+        
+    Example:
+        Dec 22, 2025 – Jan 3, 2026 with Full Day (1.0):
+        - Base calculation: 8.5 days (Tue-Fri: 4, Sat: 0.5, Sun: 0, Mon-Thu: 4, Fri: 0, Sat: 0.5, Sun: 0)
+        - With multiplier 1.0: 8.5 * 1.0 = 8.5 days ✓
+    """
+    # Combine holidays from both years
+    all_holidays = set(KENYAN_HOLIDAYS_2026 + KENYAN_HOLIDAYS_2025)
+    
+    # Step 1: Calendar Loop - Calculate base weighting
+    base_sum = 0.0
+    current_date = start_date
+    
+    while current_date <= end_date:
+        dow = current_date.weekday()  # 0=Monday, 6=Sunday
+        
+        # Check if it's a public holiday
+        is_holiday = current_date in all_holidays
+        
+        if is_holiday:
+            # Public Holiday: +0.0
+            base_sum += 0.0
+        elif dow == 6:  # Sunday
+            # Sunday: +0.0
+            base_sum += 0.0
+        elif dow == 5:  # Saturday
+            # Saturday: +0.5
+            base_sum += 0.5
+        else:
+            # Monday-Friday: +1.0
+            base_sum += 1.0
+        
+        current_date = date.fromordinal(current_date.toordinal() + 1)
+    
+    # Step 2: Apply Admin Override (Multiplier)
+    final_total = base_sum * multiplier
+    
+    return final_total
 
 
 def get_fiscal_year_python(p_date):
@@ -689,15 +777,18 @@ def add_historical_leave():
                                 employees=Employee.query.filter_by(IsActive=True).order_by(Employee.EmployeeCode.asc()).all(),
                                 error='End date must be after start date')
         
-        # 1. Calculate the actual number of calendar days (inclusive)
-        date_range_days = (end_date - start_date).days + 1
-        
-        # 2. Get the multiplier (Now only 1.0 for Auto or 0.5 for Half)
+        # 1. Get the multiplier from the dropdown (Full Day = 1.0, Half Day = 0.5)
         multiplier_str = request.form.get('total_days', '1.0')
         multiplier = float(multiplier_str)
         
-        # 3. THE FIX: The total is ALWAYS the range multiplied by the selection
-        final_total = float(date_range_days * multiplier)
+        # 2. Use the new Rate Multiplier calculation
+        # Step 1: Calendar Loop (Mon-Fri: 1.0, Sat: 0.5, Sun/Holidays: 0.0)
+        # Step 2: Apply multiplier
+        final_total = calculate_leave_with_rate_multiplier(start_date, end_date, multiplier)
+        
+        print(f"DEBUG: Date range: {start_date} to {end_date}")
+        print(f"DEBUG: Multiplier: {multiplier}")
+        print(f"DEBUG: Final total days: {final_total}")
         
         fiscal_year = get_fiscal_year_python(start_date)
         

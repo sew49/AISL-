@@ -26,6 +26,93 @@ except ImportError:
     LeaveRequest = app_module.LeaveRequest
     Holiday = app_module.Holiday
 
+
+# =====================================================
+# KENYAN PUBLIC HOLIDAYS (for leave calculation)
+# =====================================================
+
+KENYAN_HOLIDAYS_2026 = [
+    date(2026, 1, 1),   # New Year's Day
+    date(2026, 3, 1),   # Moi's Birthday
+    date(2026, 3, 27),  # Good Friday
+    date(2026, 3, 30),  # Easter Monday
+    date(2026, 4, 1),   # April Fool's Day
+    date(2026, 5, 1),   # Labour Day
+    date(2026, 6, 1),   # Children's Day
+    date(2026, 6, 20),  # Eid al-Fitr
+    date(2026, 7, 31),  # Eid al-Adha
+    date(2026, 10, 10), # Kenyatta Day
+    date(2026, 10, 20), # Mashujaa Day
+    date(2026, 12, 12), # Jamhuri Day
+    date(2026, 12, 25), # Christmas Day
+    date(2026, 12, 26), # Boxing Day
+]
+
+KENYAN_HOLIDAYS_2025 = [
+    date(2025, 12, 25), # Christmas Day
+    date(2025, 12, 26), # Boxing Day
+]
+
+
+# =====================================================
+# LEAVE CALCULATION - Rate Multiplier
+# =====================================================
+
+def calculate_leave_with_rate_multiplier(start_date, end_date, multiplier=1.0):
+    """
+    Two-step leave calculation using Rate Multiplier logic.
+    
+    Step 1: Calendar Loop (Base Weighting)
+    - Mon-Fri: +1.0
+    - Saturdays: +0.5
+    - Sundays & Public Holidays: +0.0
+    
+    Step 2: Admin Override (The Multiplier)
+    - Full Day (1.0): FinalTotal = CalculatedSum * 1.0
+    - Half Day (0.5): FinalTotal = CalculatedSum * 0.5
+    
+    Args:
+        start_date: Start date of leave
+        end_date: End date of leave  
+        multiplier: 1.0 for Full Day, 0.5 for Half Day
+        
+    Returns:
+        float: Final leave days after applying multiplier
+    """
+    # Combine holidays from both years
+    all_holidays = set(KENYAN_HOLIDAYS_2026 + KENYAN_HOLIDAYS_2025)
+    
+    # Step 1: Calendar Loop - Calculate base weighting
+    base_sum = 0.0
+    current_date = start_date
+    
+    while current_date <= end_date:
+        dow = current_date.weekday()  # 0=Monday, 6=Sunday
+        
+        # Check if it's a public holiday
+        is_holiday = current_date in all_holidays
+        
+        if is_holiday:
+            # Public Holiday: +0.0
+            base_sum += 0.0
+        elif dow == 6:  # Sunday
+            # Sunday: +0.0
+            base_sum += 0.0
+        elif dow == 5:  # Saturday
+            # Saturday: +0.5
+            base_sum += 0.5
+        else:
+            # Monday-Friday: +1.0
+            base_sum += 1.0
+        
+        current_date = date.fromordinal(current_date.toordinal() + 1)
+    
+    # Step 2: Apply Admin Override (Multiplier)
+    final_total = base_sum * multiplier
+    
+    return final_total
+
+
 # =====================================================
 # FISCAL YEAR UTILITY
 # =====================================================
@@ -171,12 +258,18 @@ def add_manual_leave():
                                 employees=Staff.query.filter_by(is_active=True).order_by(Staff.employee_code.asc()).all(),
                                 error='End date must be after start date')
         
-        # Calculate actual days excluding weekends and holidays
-        actual_days = calculate_actual_leave_days(start_date, end_date)
+        # Get the multiplier from the dropdown (Full Day = 1.0, Half Day = 0.5)
+        multiplier_str = request.form.get('total_days', '1.0')
+        multiplier = float(multiplier_str)
+        
+        # Use the new Rate Multiplier calculation
+        # Step 1: Calendar Loop (Mon-Fri: 1.0, Sat: 0.5, Sun/Holidays:)
+        # Step 0.0 2: Apply multiplier
+        actual_days = calculate_leave_with_rate_multiplier(start_date, end_date, multiplier)
         
         # DEBUG: Print the actual days calculation
         print(f"DEBUG: Start date: {start_date}, End date: {end_date}")
-        print(f"DEBUG: Date range days (inclusive): {(end_date - start_date).days + 1}")
+        print(f"DEBUG: Multiplier: {multiplier}")
         print(f"DEBUG: Calculated actual_days: {actual_days}")
         
         # Calculate fiscal year using October 1st logic
