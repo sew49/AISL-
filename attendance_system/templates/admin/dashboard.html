@@ -83,7 +83,7 @@
                             {% set ns_inner.day_type = a.day_type or '-' %}
                             {% if a.clock_in %}
                                 {% set total_mins = a.clock_in.hour * 60 + a.clock_in.minute %}
-                                {% if total_mins > 8 * 60 + 15 %}
+                                {% if total_mins > 8 * 60 %}
                                     {% set ns_inner.is_late = true %}
                                 {% endif %}
                             {% endif %}
@@ -115,15 +115,22 @@
                                 </span>
                                 {% set ns.leave_count = ns.leave_count + 1 %}
                             {% elif ns_inner.is_present %}
-                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                                    Present
+                                {% if ns_inner.clock_out != '-' %}
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                                    Clocked Out
                                 </span>
                                 {% set ns.present_count = ns.present_count + 1 %}
-                            {% elif ns_inner.is_late %}
+                                {% elif ns_inner.is_late %}
                                 <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
                                     LATE
                                 </span>
                                 {% set ns.late_count = ns.late_count + 1 %}
+                                {% else %}
+                                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                    Present
+                                </span>
+                                {% set ns.present_count = ns.present_count + 1 %}
+                                {% endif %}
                             {% else %}
                                 <span class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
                                     Not Clocked In
