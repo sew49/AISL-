@@ -343,11 +343,21 @@ def create_leave_request():
         return jsonify({'success': False, 'error': f'Invalid date format. Use YYYY-MM-DD. Error: {str(e)}'}), 400
 
     try:
-        # Check if day_type is provided (Half Day = 0.5, Full Day = 1.0)
-        if day_type and day_type != '1.0':
-            total_days = float(day_type)
-        else:
-            total_days = calculate_leave_days_python(start_date, end_date)
+        # Get the multiplier from the dropdown (Full Day = 1.0, Half Day = 0.5)
+        # Default to 1.0 if not provided
+        try:
+            multiplier = float(day_type) if day_type else 1.0
+        except (ValueError, TypeError):
+            multiplier = 1.0
+        
+        # Step 1: Calculate calendar days using the existing logic
+        # (Mon-Fri: 1.0, Sat: 0.5, Sun: 0.0)
+        calendar_days = calculate_leave_days_python(start_date, end_date)
+        
+        # Step 2: Apply the multiplier from the dropdown
+        total_days = calendar_days * multiplier
+        
+        print(f"DEBUG Leave: Start={start_date}, End={end_date}, Calendar Days={calendar_days}, Multiplier={multiplier}, Final Days={total_days}")
 
         if leave_type in ['Annual', 'Sick']:
             fiscal_year = get_fiscal_year_python(start_date)

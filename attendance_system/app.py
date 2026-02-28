@@ -1391,6 +1391,14 @@ def leave_requests():
     end_date = datetime.strptime(data.get('end_date'), '%Y-%m-%d').date()
     reason = data.get('reason', '')
     
+    # Get the multiplier from the dropdown (Full Day = 1.0, Half Day = 0.5)
+    # If day_type is not provided, default to 1.0 (Full Day)
+    multiplier_str = data.get('day_type', '1.0')
+    try:
+        multiplier = float(multiplier_str)
+    except (ValueError, TypeError):
+        multiplier = 1.0
+    
     if not staff_id:
         return jsonify({'success': False, 'error': 'Employee ID is required'}), 400
     
@@ -1399,7 +1407,14 @@ def leave_requests():
         if not staff:
             return jsonify({'success': False, 'error': 'Staff not found'}), 404
         
-        total_days = calculate_kenyan_leave(start_date, end_date)
+        # Step 1: Calculate calendar days using the existing logic (Sat=0.5, Sun/Holiday=0)
+        calendar_days = calculate_kenyan_leave(start_date, end_date)
+        
+        # Step 2: Apply the multiplier from the dropdown
+        total_days = calendar_days * multiplier
+        
+        # Debug log
+        print(f"DEBUG Leave: Start={start_date}, End={end_date}, Calendar Days={calendar_days}, Multiplier={multiplier}, Final Days={total_days}")
         
         if leave_type == 'Annual':
             if staff.leave_balance < total_days:
