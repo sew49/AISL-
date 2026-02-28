@@ -233,6 +233,31 @@ class Holiday(db.Model):
         }
 
 
+class CasualAttendance(db.Model):
+    __tablename__ = 'casual_attendance'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    phone_number = db.Column(db.String(20), nullable=False)
+    work_type = db.Column(db.String(50), nullable=False)  # Loading, Cleaning, Workshop, etc.
+    clock_in = db.Column(db.Time, nullable=False)
+    clock_out = db.Column(db.Time)
+    work_date = db.Column(db.Date, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'phone_number': self.phone_number,
+            'work_type': self.work_type,
+            'clock_in': self.clock_in.strftime('%H:%M') if self.clock_in else None,
+            'clock_out': self.clock_out.strftime('%H:%M') if self.clock_out else None,
+            'work_date': self.work_date.isoformat() if self.work_date else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+
 # =====================================================
 # HELPER FUNCTIONS
 # =====================================================
@@ -456,6 +481,12 @@ def index():
                               today=date.today(),
                               attendance={},
                               error=str(e))
+
+
+@app.route('/casual')
+def casual_page():
+    """Casual worker attendance page"""
+    return render_template('casual.html')
 
 
 @app.route('/debug')
@@ -698,10 +729,13 @@ def admin_dashboard():
         yesterday = datetime.now() - timedelta(days=1)
         recent_attendance = Attendance.query.filter(Attendance.created_at >= yesterday).order_by(Attendance.created_at.desc()).all()
         
-        return render_template('admin/dashboard.html', 
+        # Get casual worker attendance for today
+        casual_today = CasualAttendance.query.filter_by(work_date=today).order_by(CasualAttendance.clock_in.desc()).all()
+        
+        return render_template('admin/dashboard.html',
                              staff=staff_members,
                              attendance=today_attendance,
-
+                             casual_today=casual_today,
                              historical_leaves=historical_leaves,
                              pending_leaves=pending_leaves,
                              today=today,
@@ -1703,6 +1737,140 @@ def reset_annual_leave():
     except Exception as e:
         print(f"❌ ERROR resetting annual leave: {str(e)}")
         db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': f'Database error: {str(e)}'
+        }), 500
+
+
+# =====================================================
+# CASUAL WORKER API ROUTES
+# =====================================================
+
+@app.route('/api/casual/clock-in', methods=['POST'])
+def casual_clock_in():
+    """Casual worker clock in - creates new row every time"""
+    data = request.get_json()
+    
+    name = data.get('name')
+    phone_number = data.get('phone_number')
+    work_type = data.get('work_type')
+    
+    if not name or not phone_number or not work_type:
+        return jsonify({'success': False, 'error': 'Name, phone number, and work type are required'}), 400
+    
+    today = date.today()
+    now = datetime.now().time()
+    
+    try:
+        # Every clock in creates a NEW row (allow multiple per day per person)
+        casual = CasualAttendance(
+            name=name,
+            phone_number=phone_number,
+            work_type=work_type,
+            clock_in=now,
+            work_date=today
+        )
+        db.session.add(casual)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Clocked in at {now.strftime("%H:%M")}',
+            'casual': casual.to_dict()
+        })
+    except Exception as e:
+        print(f"❌ ERROR casual clock in: {str(e)}")
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': f'Database error: {str(e)}'
+        }), 500
+
+
+@app.route('/api/casual/clock-out', methods=['POST'])
+def casual_clock_out():
+    """Casual worker clock out - updates latest open row for that phone number today"""
+    data = request.get_json()
+    
+    phone_number = data.get('phone_number')
+    
+    if not phone_number:
+        return jsonify({'success': False, 'error': 'Phone number is required'}), 400
+    
+    today = date.today()
+    now = datetime.now().time()
+    
+    try:
+        # Find latest open row for this phone number today (clock_out is NULL)
+        latest = CasualAttendance.query.filter(
+            CasualAttendance.phone_number == phone_number,
+            CasualAttendance.work_date == today,
+            CasualAttendance.clock_out == None
+        ).order_by(CasualAttendance.clock_in.desc()).first()
+        
+        if not latest:
+            return jsonify({'success': False, 'error': 'No open clock-in found for today'}), 404
+        
+        latest.clock_out = now
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Clocked out at {now.strftime("%H:%M")}',
+            'casual': latest.to_dict()
+        })
+    except Exception as e:
+        print(f"❌ ERROR casual clock out: {str(e)}")
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': f'Database error: {str(e)}'
+        }), 500
+
+
+@app.route('/api/casual/today', methods=['GET'])
+def casual_today():
+    """Get all casual attendance for today"""
+    today = date.today()
+    
+    try:
+        casuals = CasualAttendance.query.filter_by(work_date=today).order_by(CasualAttendance.clock_in.desc()).all()
+        return jsonify({
+            'success': True,
+            'date': today.isoformat(),
+            'casuals': [c.to_dict() for c in casuals]
+        })
+    except Exception as e:
+        print(f"❌ ERROR loading casual today: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Database error: {str(e)}'
+        }), 500
+
+
+@app.route('/api/casual/logs', methods=['GET'])
+def casual_logs():
+    """Get casual attendance logs - optionally filter by date"""
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    
+    try:
+        query = CasualAttendance.query
+        if start_date:
+            start = datetime.strptime(start_date, '%Y-%m-%d').date()
+            query = query.filter(CasualAttendance.work_date >= start)
+        if end_date:
+            end = datetime.strptime(end_date, '%Y-%m-%d').date()
+            query = query.filter(CasualAttendance.work_date <= end)
+        
+        casuals = query.order_by(CasualAttendance.work_date.desc(), CasualAttendance.clock_in.desc()).all()
+        return jsonify({
+            'success': True,
+            'casuals': [c.to_dict() for c in casuals]
+        })
+    except Exception as e:
+        print(f"❌ ERROR loading casual logs: {str(e)}")
         return jsonify({
             'success': False,
             'error': f'Database error: {str(e)}'
