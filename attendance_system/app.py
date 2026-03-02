@@ -827,10 +827,18 @@ def admin_dashboard():
         # Get casual worker attendance for today
         casual_today = CasualAttendance.query.filter_by(work_date=today).order_by(CasualAttendance.clock_in.desc()).all()
         
+        # Calculate total casual hours for today
+        total_casual_hours = 0.0
+        for c in casual_today:
+            if c.clock_in and c.clock_out:
+                total_mins = (c.clock_out.hour * 60 + c.clock_out.minute) - (c.clock_in.hour * 60 + c.clock_in.minute)
+                total_casual_hours += total_mins / 60.0
+        
         return render_template('admin/dashboard.html',
                              staff=staff_members,
                              attendance=today_attendance,
                              casual_today=casual_today,
+                             total_casual_hours=total_casual_hours,
                              historical_leaves=historical_leaves,
                              pending_leaves=pending_leaves,
                              today=today,
