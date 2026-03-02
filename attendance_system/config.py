@@ -62,6 +62,20 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'aero_instrument_secure_key_2026')
 PERMANENT_SESSION_LIFETIME_HOURS = 8
 
 # =====================================================
+# EMAIL CONFIGURATION (for leave approval notifications)
+# =====================================================
+
+# SMTP Email settings - configure these in .env file
+EMAIL_ENABLED = os.getenv('EMAIL_ENABLED', 'false').lower() == 'true'
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'true').lower() == 'true'
+EMAIL_USERNAME = os.getenv('EMAIL_USERNAME', '')
+EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD', '')
+EMAIL_FROM = os.getenv('EMAIL_FROM', 'noreply@attendance.com')
+EMAIL_FROM_NAME = os.getenv('EMAIL_FROM_NAME', 'Attendance System')
+
+# =====================================================
 # EXPORTS
 # =====================================================
 
@@ -74,5 +88,13 @@ __all__ = [
     'SQLALCHEMY_DATABASE_URI',
     'SQLALCHEMY_ENGINE_OPTIONS',
     'SECRET_KEY',
-    'PERMANENT_SESSION_LIFETIME_HOURS'
+    'PERMANENT_SESSION_LIFETIME_HOURS',
+    'EMAIL_ENABLED',
+    'EMAIL_HOST',
+    'EMAIL_PORT',
+    'EMAIL_USE_TLS',
+    'EMAIL_USERNAME',
+    'EMAIL_PASSWORD',
+    'EMAIL_FROM',
+    'EMAIL_FROM_NAME'
 ]

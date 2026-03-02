@@ -323,6 +323,7 @@
                 <thead>
                     <tr class="bg-gray-50">
                         <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
                         <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
                         <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Dates</th>
                         <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Days</th>
@@ -335,6 +336,13 @@
                     <tr class="hover:bg-gray-50">
                         <td class="px-3 py-2 font-medium text-gray-900">
                             {{ leave.staff.first_name }} {{ leave.staff.last_name }}
+                        </td>
+                        <td class="px-3 py-2">
+                            <input type="email" 
+                                   class="staff-email-input w-full border border-gray-300 rounded px-2 py-1 text-xs" 
+                                   placeholder="staff@email.com"
+                                   value="{{ leave.staff.email if leave.staff.email else '' }}"
+                                   data-id="{{ leave.id }}">
                         </td>
                         <td class="px-3 py-2">
                             <span class="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">
@@ -758,13 +766,20 @@
                         return;
                     }
                     
+                    // Get the email from the input field
+                    var emailInput = document.querySelector('.staff-email-input[data-id="' + requestId + '"]');
+                    var staffEmail = emailInput ? emailInput.value : '';
+                    
                     var url = '/api/leave-requests/' + requestId + '/' + action;
                     
                     fetch(url, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
-                        }
+                        },
+                        body: JSON.stringify({
+                            staff_email: staffEmail
+                        })
                     })
                     .then(response => response.json())
                     .then(data => {

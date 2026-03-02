@@ -1,4 +1,7 @@
 import os
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from flask import Flask
 from dotenv import load_dotenv
 
@@ -72,6 +75,98 @@ ADMIN_PASSWORD = 'RAV4Adventure2019'
 
 # Late threshold time (08:15 AM)
 LATE_THRESHOLD = time(8, 15)
+
+# =====================================================
+# EMAIL CONFIGURATION
+# =====================================================
+
+EMAIL_ENABLED = os.getenv('EMAIL_ENABLED', 'false').lower() == 'true'
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'true').lower() == 'true'
+EMAIL_USERNAME = os.getenv('EMAIL_USERNAME', '')
+EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD', '')
+EMAIL_FROM = os.getenv('EMAIL_FROM', 'noreply@attendance.com')
+EMAIL_FROM_NAME = os.getenv('EMAIL_FROM_NAME', 'Attendance System')
+
+
+def send_leave_approval_email(staff_email, staff_name, start_date, end_date, total_days, leave_type, remaining_balance):
+    """
+    Send an email notification when a leave request is approved.
+    
+    Args:
+        staff_email: Staff email address
+        staff_name: Staff full name
+        start_date: Leave start date
+        end_date: Leave end date
+        total_days: Total days of leave
+        leave_type: Type of leave (Annual, Sick, etc.)
+        remaining_balance: Remaining leave balance after approval
+    
+    Returns:
+        bool: True if email was sent successfully, False otherwise
+    """
+    if not EMAIL_ENABLED:
+        print(f"📧 Email notification skipped (EMAIL_ENABLED=false): To {staff_email}")
+        return False
+    
+    if not staff_email:
+        print(f"📧 Email notification skipped: No email address for {staff_name}")
+        return False
+    
+    try:
+        # Format dates for display
+        start_str = start_date.strftime('%d/%m/%Y') if hasattr(start_date, 'strftime') else str(start_date)
+        end_str = end_date.strftime('%d/%m/%Y') if hasattr(end_date, 'strftime') else str(end_date)
+        
+        # Format total days - show 0.5 for half days
+        days_display = f"{total_days:.1f}" if total_days != int(total_days) else f"{int(total_days)}"
+        
+        # Format remaining balance
+        balance_display = f"{remaining_balance:.1f}" if remaining_balance != int(remaining_balance) else f"{int(remaining_balance)}"
+        
+        # Subject
+        subject = f"Leave Request Approved - {staff_name}"
+        
+        # Body
+        body = f"""Hello {staff_name},
+
+Your leave request has been approved.
+
+Leave Details:
+- Type: {leave_type}
+- Dates: {start_str} to {end_str}
+- Total Days: {days_display}
+
+Your remaining {leave_type} leave balance is now {balance_display} days.
+
+Please ensure you have made any necessary arrangements for coverage during your absence.
+
+Best regards,
+Attendance System
+"""
+        
+        # Create message
+        msg = MIMEMultipart()
+        msg['From'] = f"{EMAIL_FROM_NAME} <{EMAIL_FROM}>"
+        msg['To'] = staff_email
+        msg['Subject'] = subject
+        msg.attach(MIMEText(body, 'plain'))
+        
+        # Connect to server and send
+        with smtplib.SMTP(EMAIL_HOST, EMAIL_PORT) as server:
+            if EMAIL_USE_TLS:
+                server.starttls()
+            if EMAIL_USERNAME and EMAIL_PASSWORD:
+                server.login(EMAIL_USERNAME, EMAIL_PASSWORD)
+            server.send_message(msg)
+        
+        print(f"📧 Approval email sent to {staff_email}: {staff_name} - {days_display} days ({leave_type})")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Failed to send approval email to {staff_email}: {str(e)}")
+        return False
 
 # =====================================================
 # DATABASE MODELS (SQLAlchemy 2.0 compatible)
@@ -899,7 +994,7 @@ def admin_input():
 # Export Leave Summary to CSV
 @app.route('/export_leave_summary')
 def export_leave_summary():
-    """Export yearly leave summary to CSV"""
+    """Export yearly leave summary to CSV with Annual and Sick leave columns"""
     if not session.get('admin_logged_in'):
         return redirect(url_for('admin_login'))
     
@@ -916,11 +1011,13 @@ def export_leave_summary():
         # Target years
         target_years = [2021, 2022, 2023, 2024, 2025, 2026]
         
-        # Build yearly stats
+        # Build yearly stats with separate Annual and Sick leave
         yearly_stats = []
         for emp in employees:
             emp_id = emp.id
-            yearly_totals = {year: 0.0 for year in target_years}
+            # Initialize separate dictionaries for Annual and Sick leave
+            annual_totals = {year: 0.0 for year in target_years}
+            sick_totals = {year: 0.0 for year in target_years}
             
             for leave in historical_leaves:
                 if leave.staff_id == emp_id and leave.start_date:
@@ -931,12 +1028,19 @@ def export_leave_summary():
                         year = leave.start_date.year
                     
                     if year in target_years:
-                        yearly_totals[year] += float(leave.total_days) if leave.total_days else 0.0
+                        days = float(leave.total_days) if leave.total_days else 0.0
+                        # Separate by leave type - check for both 'Annual' and 'Annual Leave'
+                        if leave.leave_type in ['Annual', 'Annual Leave']:
+                            annual_totals[year] += days
+                        # Check for both 'Sick' and 'Sick Leave'
+                        elif leave.leave_type in ['Sick', 'Sick Leave']:
+                            sick_totals[year] += days
             
             yearly_stats.append({
                 'emp_id': emp_id,
                 'full_name': staff_lookup.get(emp_id, f"{emp.first_name} {emp.last_name}"),
-                'years': yearly_totals
+                'annual': annual_totals,
+                'sick': sick_totals
             })
         
         # Generate CSV
@@ -946,21 +1050,34 @@ def export_leave_summary():
         output = StringIO()
         writer = csv.writer(output)
         
-        # Header row
-        writer.writerow(['Employee ID', 'Staff Name', '2021', '2022', '2023', '2024', '2025', '2026'])
+        # Header row - matching UI table structure: ID, Name, then pairs of Annual/Sick for each year
+        header = ['ID', 'Staff Name']
+        for year in target_years:
+            header.extend([f'{year} Annual', f'{year} Sick'])
+        writer.writerow(header)
         
-        # Data rows
+        # Data rows - format decimals properly (keep .5 for half-days)
         for row in yearly_stats:
-            writer.writerow([
+            data_row = [
                 row['emp_id'],
-                row['full_name'],
-                row['years'].get(2021, 0),
-                row['years'].get(2022, 0),
-                row['years'].get(2023, 0),
-                row['years'].get(2024, 0),
-                row['years'].get(2025, 0),
-                row['years'].get(2026, 0)
-            ])
+                row['full_name']
+            ]
+            for year in target_years:
+                # Format Annual leave - show as float if not whole number
+                annual_val = row['annual'].get(year, 0.0)
+                if annual_val == int(annual_val):
+                    data_row.append(int(annual_val))
+                else:
+                    data_row.append(annual_val)
+                
+                # Format Sick leave - show as float if not whole number
+                sick_val = row['sick'].get(year, 0.0)
+                if sick_val == int(sick_val):
+                    data_row.append(int(sick_val))
+                else:
+                    data_row.append(sick_val)
+            
+            writer.writerow(data_row)
         
         # Return as downloadable file
         output.seek(0)
@@ -974,6 +1091,145 @@ def export_leave_summary():
         import traceback
         traceback.print_exc()
         return redirect(url_for('admin_dashboard'))
+
+
+# PDF Generation for Leave Approval Form
+from fpdf import FPDF
+
+class LeaveApprovalPDF(FPDF):
+    def header(self):
+        self.set_font('Arial', 'B', 16)
+        self.cell(0, 10, 'Official Leave Approval Form - AERO INSTRUMENT SERVICE LIMITED', 0, 1, 'C')
+        self.ln(5)
+    
+    def section_title(self, title):
+        self.set_font('Arial', 'B', 12)
+        self.cell(0, 8, title, 0, 1, 'L')
+        self.set_font('Arial', '', 11)
+    
+    def add_line(self, label, value):
+        self.set_font('Arial', 'B', 11)
+        self.cell(50, 7, label, 0, 0, 'L')
+        self.set_font('Arial', '', 11)
+        self.cell(0, 7, str(value), 0, 1, 'L')
+
+
+@app.route('/api/leave-requests/<int:request_id>/print-pdf')
+def print_leave_approval_pdf(request_id):
+    """Generate a printable PDF for an approved leave request"""
+    if not session.get('admin_logged_in'):
+        return redirect(url_for('admin_login'))
+    
+    try:
+        # Get the leave request
+        leave_request = db.session.get(LeaveRequest, request_id)
+        if not leave_request:
+            return jsonify({'success': False, 'error': 'Request not found'}), 404
+        
+        if leave_request.status != 'Approved':
+            return jsonify({'success': False, 'error': 'Only approved leave requests can be printed'}), 400
+        
+        # Get the staff member
+        staff = db.session.get(Staff, leave_request.staff_id)
+        if not staff:
+            return jsonify({'success': False, 'error': 'Staff not found'}), 404
+        
+        # Calculate remaining balance after this leave
+        if leave_request.leave_type == 'Annual':
+            remaining_balance = max(0, staff.leave_balance)
+            initial_balance = remaining_balance + leave_request.total_days
+        elif leave_request.leave_type == 'Sick':
+            remaining_balance = max(0, getattr(staff, 'sick_leave_balance', 7))
+            initial_balance = remaining_balance + leave_request.total_days
+        else:
+            remaining_balance = 0
+            initial_balance = 0
+        
+        # Format dates
+        start_date_str = leave_request.start_date.strftime('%d/%m/%Y') if leave_request.start_date else '-'
+        end_date_str = leave_request.end_date.strftime('%d/%m/%Y') if leave_request.end_date else '-'
+        
+        # Format total days - preserve .5 for half days
+        total_days = leave_request.total_days
+        if total_days == int(total_days):
+            days_display = str(int(total_days))
+        else:
+            days_display = f"{total_days:.1f}"
+        
+        # Format remaining balance
+        if remaining_balance == int(remaining_balance):
+            balance_display = str(int(remaining_balance))
+        else:
+            balance_display = f"{remaining_balance:.1f}"
+        
+        # Create PDF
+        pdf = LeaveApprovalPDF()
+        pdf.add_page()
+        
+        # Staff Details Section
+        pdf.section_title('STAFF DETAILS')
+        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+        pdf.ln(2)
+        pdf.add_line('Employee Name:', f"{staff.first_name} {staff.last_name}")
+        pdf.add_line('Employee ID:', staff.employee_code or f"EMP{str(staff.id).zfill(3)}")
+        pdf.add_line('Department:', staff.department or 'Operations')
+        pdf.ln(5)
+        
+        # Leave Details Section
+        pdf.section_title('LEAVE DETAILS')
+        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+        pdf.ln(2)
+        pdf.add_line('Leave Type:', leave_request.leave_type)
+        pdf.add_line('Start Date:', start_date_str)
+        pdf.add_line('End Date:', end_date_str)
+        pdf.add_line('Total Days:', days_display)
+        if leave_request.reason:
+            pdf.add_line('Reason:', leave_request.reason[:50] if len(leave_request.reason) > 50 else leave_request.reason)
+        pdf.ln(5)
+        
+        # Balance Summary Section
+        pdf.section_title('BALANCE SUMMARY')
+        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+        pdf.ln(2)
+        pdf.add_line('Leave Type:', leave_request.leave_type)
+        pdf.add_line('Initial Balance:', f"{initial_balance:.1f} days")
+        pdf.add_line('Days Used:', f"- {days_display} days")
+        pdf.set_font('Arial', 'B', 11)
+        pdf.add_line('Remaining Balance:', f"{balance_display} days")
+        pdf.set_font('Arial', '', 11)
+        pdf.ln(10)
+        
+        # Signature Section
+        pdf.section_title('SIGNATURES')
+        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+        pdf.ln(5)
+        
+        # Staff Signature
+        pdf.cell(90, 10, 'Staff Signature: ______________________', 0, 0, 'L')
+        pdf.cell(90, 10, 'Date: ____________', 0, 1, 'L')
+        pdf.ln(15)
+        
+        # Supervisor/Admin Signature
+        pdf.cell(90, 10, 'Supervisor/Admin Signature: __________', 0, 0, 'L')
+        pdf.cell(90, 10, 'Date: ____________', 0, 1, 'L')
+        
+        # Footer
+        pdf.set_y(-25)
+        pdf.set_font('Arial', 'I', 8)
+        pdf.cell(0, 5, 'Generated by Attendance System on ' + datetime.now().strftime('%d/%m/%Y at %H:%M'), 0, 1, 'C')
+        
+        # Return PDF as response
+        response = make_response(pdf.output(dest='S').encode('latin-1'))
+        response.headers['Content-Type'] = 'application/pdf'
+        response.headers['Content-Disposition'] = f'attachment; filename=Leave_Approval_{staff.employee_code or staff.id}_{leave_request.start_date.strftime("%Y%m%d")}.pdf'
+        
+        return response
+        
+    except Exception as e:
+        print(f"❌ ERROR generating PDF: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': f'Error generating PDF: {str(e)}'}), 500
 
 
 @app.route('/admin/leave')
@@ -1496,6 +1752,10 @@ def approve_leave(request_id):
     if not session.get('admin_logged_in'):
         return jsonify({'success': False, 'error': 'Unauthorized'}), 401
     
+    # Get staff_email from request body if provided
+    data = request.get_json() or {}
+    override_email = data.get('staff_email', '')
+    
     try:
         leave_request = db.session.get(LeaveRequest, request_id)
         if not leave_request:
@@ -1503,16 +1763,15 @@ def approve_leave(request_id):
         
         staff = db.session.get(Staff, leave_request.staff_id)
         
-        # Deduct leave from appropriate balance
+        # Store the remaining balance before deducting (for email)
+        remaining_balance = 0
         if staff:
             if leave_request.leave_type == 'Annual':
-                staff.leave_balance -= leave_request.total_days
-                if staff.leave_balance < 0:
-                    staff.leave_balance = 0
+                remaining_balance = max(0, staff.leave_balance - leave_request.total_days)
+                staff.leave_balance = remaining_balance
             elif leave_request.leave_type == 'Sick':
-                staff.sick_leave_balance -= leave_request.total_days
-                if staff.sick_leave_balance < 0:
-                    staff.sick_leave_balance = 0
+                remaining_balance = max(0, getattr(staff, 'sick_leave_balance', 7) - leave_request.total_days)
+                staff.sick_leave_balance = remaining_balance
         
         # Create "On Leave" attendance records for each day of leave
         current_date = leave_request.start_date
@@ -1543,6 +1802,22 @@ def approve_leave(request_id):
         leave_request.approved_date = datetime.utcnow()
         
         db.session.commit()
+        
+        # Send approval email after successful approval
+        # Use override_email if provided, otherwise fall back to staff's stored email
+        email_to_use = override_email if override_email else (staff.email if staff else None)
+        
+        if staff:
+            staff_name = f"{staff.first_name} {staff.last_name}"
+            send_leave_approval_email(
+                staff_email=email_to_use,
+                staff_name=staff_name,
+                start_date=leave_request.start_date,
+                end_date=leave_request.end_date,
+                total_days=leave_request.total_days,
+                leave_type=leave_request.leave_type,
+                remaining_balance=remaining_balance
+            )
         
         return jsonify({
             'success': True,
