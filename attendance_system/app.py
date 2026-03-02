@@ -2152,6 +2152,84 @@ def casual_logs():
         }), 500
 
 
+@app.route('/export_casual_csv')
+def export_casual_csv():
+    """Export casual worker attendance to CSV"""
+    if not session.get('admin_logged_in'):
+        return redirect(url_for('admin_login'))
+    
+    try:
+        # Get date filters if provided
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        
+        # Build query
+        query = CasualAttendance.query
+        if start_date:
+            start = datetime.strptime(start_date, '%Y-%m-%d').date()
+            query = query.filter(CasualAttendance.work_date >= start)
+        if end_date:
+            end = datetime.strptime(end_date, '%Y-%m-%d').date()
+            query = query.filter(CasualAttendance.work_date <= end)
+        
+        # Get all records ordered by date (newest first), then by clock in time
+        casuals = query.order_by(CasualAttendance.work_date.desc(), CasualAttendance.clock_in.desc()).all()
+        
+        # Generate CSV
+        import csv
+        from io import StringIO
+        
+        output = StringIO()
+        writer = csv.writer(output)
+        
+        # Header row
+        writer.writerow(['Date', 'Name', 'Phone Number', 'Work Type', 'Clock In Time', 'Clock Out Time'])
+        
+        # Data rows - include ALL entries (supports multi-entry per day)
+        for c in casuals:
+            # Format date
+            date_str = c.work_date.strftime('%Y-%m-%d') if c.work_date else ''
+            
+            # Format clock in time
+            clock_in_str = c.clock_in.strftime('%H:%M') if c.clock_in else ''
+            
+            # Format clock out time
+            clock_out_str = c.clock_out.strftime('%H:%M') if c.clock_out else ''
+            
+            writer.writerow([
+                date_str,
+                c.name or '',
+                c.phone_number or '',
+                c.work_type or '',
+                clock_in_str,
+                clock_out_str
+            ])
+        
+        # Return as downloadable file
+        output.seek(0)
+        
+        # Generate filename with date range if provided
+        if start_date and end_date:
+            filename = f'casual_workers_{start_date}_to_{end_date}.csv'
+        elif start_date:
+            filename = f'casual_workers_from_{start_date}.csv'
+        elif end_date:
+            filename = f'casual_workers_until_{end_date}.csv'
+        else:
+            filename = 'casual_workers_all.csv'
+        
+        return make_response(output.getvalue(), 200, {
+            'Content-Type': 'text/csv',
+            'Content-Disposition': f'attachment; filename={filename}'
+        })
+    
+    except Exception as e:
+        print(f"❌ ERROR exporting casual CSV: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return redirect(url_for('admin_dashboard'))
+
+
 # =====================================================
 # MAIN
 # =====================================================
