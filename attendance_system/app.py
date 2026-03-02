@@ -2183,7 +2183,7 @@ def export_casual_csv():
         writer = csv.writer(output)
         
         # Header row
-        writer.writerow(['Date', 'Name', 'Phone Number', 'Work Type', 'Clock In Time', 'Clock Out Time'])
+        writer.writerow(['Date', 'Name', 'Phone Number', 'Work Type', 'Clock In Time', 'Clock Out Time', 'Total Hours'])
         
         # Data rows - include ALL entries (supports multi-entry per day)
         for c in casuals:
@@ -2196,13 +2196,22 @@ def export_casual_csv():
             # Format clock out time
             clock_out_str = c.clock_out.strftime('%H:%M') if c.clock_out else ''
             
+            # Calculate total hours (decimal format)
+            if c.clock_in and c.clock_out:
+                total_mins = (c.clock_out.hour * 60 + c.clock_out.minute) - (c.clock_in.hour * 60 + c.clock_in.minute)
+                total_hours = total_mins / 60.0
+                total_hours_str = f"{total_hours:.1f}"
+            else:
+                total_hours_str = ''
+            
             writer.writerow([
                 date_str,
                 c.name or '',
                 c.phone_number or '',
                 c.work_type or '',
                 clock_in_str,
-                clock_out_str
+                clock_out_str,
+                total_hours_str
             ])
         
         # Return as downloadable file
