@@ -73,7 +73,7 @@ After=network.target
 User=root
 WorkingDirectory=/var/www/attendance_staff
 Environment="PATH=/var/www/attendance_staff/venv/bin"
-ExecStart=/var/www/attendance_staff/venv/bin/gunicorn --bind 0.0.0.0:5000 --workers 3 --timeout 120 app:app
+ExecStart=/var/www/attendance_staff/venv/bin/gunicorn --bind 0.0.0.0:5000 --workers 3 --timeout 120 staff_portal_only:app
 Restart=always
 RestartSec=10
 
