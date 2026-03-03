@@ -26,7 +26,7 @@ source venv/bin/activate
 
 # Install dependencies
 pip install --upgrade pip
-pip install gunicorn flask flask-sqlalchemy flask-cors python-dotenv pytz fpdf
+pip install flask gunicorn supabase python-dotenv
 
 # --- STEP 4: Environment Variables ---
 echo "[4/6] Setting up environment variables..."
@@ -55,7 +55,8 @@ echo "✅ Environment file created at /var/www/attendance_staff/.env"
 # --- STEP 5: Firewall ---
 echo "[5/6] Configuring firewall..."
 ufw allow 5000/tcp
-ufw --force enable
+ufw allow ssh
+ufw enable
 
 # --- STEP 6: Create Systemd Service ---
 echo "[6/6] Creating systemd service..."
@@ -69,7 +70,7 @@ After=network.target
 User=root
 WorkingDirectory=/var/www/attendance_staff
 Environment="PATH=/var/www/attendance_staff/venv/bin"
-ExecStart=/var/www/attendance_staff/venv/bin/gunicorn --bind 0.0.0.0:5000 --workers 3 --timeout 120 staff_portal_only:app
+ExecStart=/var/www/attendance_staff/venv/bin/gunicorn --bind 0.0.0.0:5000 --workers 3 --timeout 120 app:app
 Restart=always
 RestartSec=10
 
