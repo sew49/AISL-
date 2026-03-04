@@ -1,6 +1,7 @@
 flask
 fpdf
 gunicorn
+pytz
 supabase==2.12.0
 python-dotenv
 flask-cors
