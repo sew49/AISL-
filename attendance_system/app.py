@@ -1102,7 +1102,7 @@ def export_leave_summary():
 
 
 # PDF Generation for Leave Approval Form
-from fpdf import FPDF
+from fpdf2 import FPDF
 import io
 
 class LeaveApprovalPDF(FPDF):
