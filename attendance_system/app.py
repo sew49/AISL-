@@ -76,25 +76,24 @@ db = SQLAlchemy(app)
 # =====================================================
 # GUNICORN COMPATIBLE INITIALIZATION
 # =====================================================
-# This runs at module import time, which is needed for gunicorn
-# to properly initialize the database when starting the app
+# Note: Database initialization is now handled lazily on first request
+# to avoid blocking startup when database is temporarily unavailable
+# The init_db() function is defined but NOT called at module level
+
 def init_db():
     """Initialize database tables - safe to call multiple times"""
     try:
         with app.app_context():
             db.create_all()
-            print("✅ Database tables created/verified (gunicorn init)")
+            print("✅ Database tables created/verified (lazy init)")
             # Only seed if using SQLite (local dev)
             if 'sqlite' in DATABASE_URL:
                 seed_staff()
     except Exception as e:
         print(f"⚠️ Database initialization warning: {e}")
 
-# Try to initialize database on module import (for gunicorn)
-try:
-    init_db()
-except Exception as e:
-    print(f"⚠️ Initial database setup warning: {e}")
+# NOTE: We no longer call init_db() at module level to prevent startup blocking
+# Database will be initialized on first request instead
 
 
 # Supabase config
