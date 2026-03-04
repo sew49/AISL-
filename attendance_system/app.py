@@ -1240,6 +1240,181 @@ def print_leave_approval_pdf(request_id):
         return jsonify({'success': False, 'error': f'Error generating PDF: {str(e)}'}), 500
 
 
+@app.route('/api/leave-requests/<int:request_id>/approve-and-download', methods=['POST'])
+def approve_and_download_pdf(request_id):
+    """Approve leave request and return PDF as direct download"""
+    if not session.get('admin_logged_in'):
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+    
+    # Get staff_email from request body if provided
+    data = request.get_json() or {}
+    override_email = data.get('staff_email', '')
+    
+    try:
+        # =====================================================
+        # STEP 1: Approve the leave (existing logic)
+        # =====================================================
+        leave_request = db.session.get(LeaveRequest, request_id)
+        if not leave_request:
+            return jsonify({'success': False, 'error': 'Request not found'}), 404
+        
+        staff = db.session.get(Staff, leave_request.staff_id)
+        
+        # Store the remaining balance before deducting (for PDF)
+        remaining_balance = 0
+        initial_balance = 0
+        if staff:
+            if leave_request.leave_type == 'Annual':
+                remaining_balance = max(0, staff.leave_balance - leave_request.total_days)
+                initial_balance = staff.leave_balance
+                staff.leave_balance = remaining_balance
+            elif leave_request.leave_type == 'Sick':
+                remaining_balance = max(0, getattr(staff, 'sick_leave_balance', 7) - leave_request.total_days)
+                initial_balance = getattr(staff, 'sick_leave_balance', 7)
+                staff.sick_leave_balance = remaining_balance
+        
+        # Create "On Leave" attendance records for each day of leave
+        current_date = leave_request.start_date
+        while current_date <= leave_request.end_date:
+            if current_date.weekday() != 6:
+                existing_att = Attendance.query.filter_by(
+                    staff_id=leave_request.staff_id,
+                    work_date=current_date
+                ).first()
+                
+                if not existing_att:
+                    leave_attendance = Attendance(
+                        staff_id=leave_request.staff_id,
+                        work_date=current_date,
+                        clock_in=time(0, 0),
+                        clock_out=time(0, 0),
+                        day_type='On Leave',
+                        status='On Leave',
+                        is_late=False,
+                        notes=f"{leave_request.leave_type} Leave"
+                    )
+                    db.session.add(leave_attendance)
+            
+            current_date = current_date + timedelta(days=1)
+        
+        leave_request.status = 'Approved'
+        leave_request.approved_by = 1
+        leave_request.approved_date = datetime.utcnow()
+        
+        db.session.commit()
+        
+        # Send approval email after successful approval
+        email_to_use = override_email if override_email else (staff.email if staff else None)
+        
+        if staff:
+            staff_name = f"{staff.first_name} {staff.last_name}"
+            send_leave_approval_email(
+                staff_email=email_to_use,
+                staff_name=staff_name,
+                start_date=leave_request.start_date,
+                end_date=leave_request.end_date,
+                total_days=leave_request.total_days,
+                leave_type=leave_request.leave_type,
+                remaining_balance=remaining_balance
+            )
+        
+        # =====================================================
+        # STEP 2: Generate PDF with updated balance
+        # =====================================================
+        
+        # Format dates
+        start_date_str = leave_request.start_date.strftime('%d/%m/%Y') if leave_request.start_date else '-'
+        end_date_str = leave_request.end_date.strftime('%d/%m/%Y') if leave_request.end_date else '-'
+        
+        # Format total days - preserve .5 for half days
+        total_days = leave_request.total_days
+        if total_days == int(total_days):
+            days_display = str(int(total_days))
+        else:
+            days_display = f"{total_days:.1f}"
+        
+        # Format remaining balance
+        if remaining_balance == int(remaining_balance):
+            balance_display = str(int(remaining_balance))
+        else:
+            balance_display = f"{remaining_balance:.1f}"
+        
+        # Format initial balance
+        if initial_balance == int(initial_balance):
+            initial_display = str(int(initial_balance))
+        else:
+            initial_display = f"{initial_balance:.1f}"
+        
+        # Create PDF
+        pdf = LeaveApprovalPDF()
+        pdf.add_page()
+        
+        # Staff Details Section
+        pdf.section_title('STAFF DETAILS')
+        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+        pdf.ln(2)
+        pdf.add_line('Employee Name:', f"{staff.first_name} {staff.last_name}")
+        pdf.add_line('Employee ID:', staff.employee_code or f"EMP{str(staff.id).zfill(3)}")
+        pdf.add_line('Department:', staff.department or 'Operations')
+        pdf.ln(5)
+        
+        # Leave Details Section
+        pdf.section_title('LEAVE DETAILS')
+        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+        pdf.ln(2)
+        pdf.add_line('Leave Type:', leave_request.leave_type)
+        pdf.add_line('Start Date:', start_date_str)
+        pdf.add_line('End Date:', end_date_str)
+        pdf.add_line('Total Days:', days_display)
+        if leave_request.reason:
+            pdf.add_line('Reason:', leave_request.reason[:50] if len(leave_request.reason) > 50 else leave_request.reason)
+        pdf.ln(5)
+        
+        # Balance Summary Section
+        pdf.section_title('BALANCE SUMMARY')
+        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+        pdf.ln(2)
+        pdf.add_line('Leave Type:', leave_request.leave_type)
+        pdf.add_line('Initial Balance:', f"{initial_display} days")
+        pdf.add_line('Days Used:', f"- {days_display} days")
+        pdf.set_font('Arial', 'B', 11)
+        pdf.add_line('Remaining Balance:', f"{balance_display} days")
+        pdf.set_font('Arial', '', 11)
+        pdf.ln(10)
+        
+        # Signature Section
+        pdf.section_title('SIGNATURES')
+        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+        pdf.ln(5)
+        
+        # Staff Signature
+        pdf.cell(90, 10, 'Employee Signature: ______________________', 0, 0, 'L')
+        pdf.cell(90, 10, 'Date: ____________', 0, 1, 'L')
+        pdf.ln(15)
+        
+        # Supervisor/Monu Signature
+        pdf.cell(90, 10, 'Supervisor/Monu Signature: __________', 0, 0, 'L')
+        pdf.cell(90, 10, 'Date: ____________', 0, 1, 'L')
+        
+        # Footer
+        pdf.set_y(-25)
+        pdf.set_font('Arial', 'I', 8)
+        pdf.cell(0, 5, 'Generated by Attendance System on ' + datetime.now().strftime('%d/%m/%Y at %H:%M'), 0, 1, 'C')
+        
+        # Return PDF as direct download
+        response = make_response(pdf.output(dest='S').encode('latin-1'))
+        response.headers['Content-Type'] = 'application/pdf'
+        response.headers['Content-Disposition'] = f'attachment; filename=Leave_Approval_{staff.employee_code or staff.id}_{leave_request.start_date.strftime("%Y%m%d")}.pdf'
+        
+        return response
+        
+    except Exception as e:
+        print(f"❌ ERROR approving and generating PDF: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': f'Error: {str(e)}'}), 500
+
+
 @app.route('/admin/leave')
 def admin_leave():
     """Admin leave management - with error handling"""
