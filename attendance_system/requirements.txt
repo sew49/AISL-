@@ -2,6 +2,7 @@ flask
 fpdf
 gunicorn
 pytz
+psycopg2-binary
 supabase==2.12.0
 python-dotenv
 flask-cors
