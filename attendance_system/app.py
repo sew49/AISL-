@@ -2428,29 +2428,35 @@ def export_casual_csv():
 # =====================================================
 
 if __name__ == '__main__':
-    # Get port first - Render requires this
-    port = int(os.environ.get('PORT', 5000))
-    debug_mode = os.environ.get('PORT') is None
-    
-    db_type = "PostgreSQL (Supabase)" if "postgresql" in DATABASE_URL else "SQLite (Local)"
-    print(f"\n{'='*60}")
-    print("ATTENDANCE SYSTEM STARTUP")
-    print(f"{'='*60}")
-    print(f"Database: {db_type}")
-    print(f"URL: {DATABASE_URL[:50]}...")
-    print(f"Late Threshold: {LATE_THRESHOLD}")
-    print(f"Port: {port}")
-    print(f"{'='*60}\n")
-    
-    # Initialize database before starting server
-    with app.app_context():
-        try:
-            db.create_all()
-            print("✅ Database tables created")
-            seed_staff()
-        except Exception as e:
-            print(f"⚠️ Database initialization warning: {e}")
-    
-    print(f"🚀 Starting server on port {port}...")
-    # Start server immediately - Render needs the port open ASAP
-    app.run(debug=debug_mode, host='0.0.0.0', port=port)
+    try:
+        # Get port first - Render requires this
+        port = int(os.environ.get('PORT', 5000))
+        debug_mode = os.environ.get('PORT') is None
+        
+        db_type = "PostgreSQL (Supabase)" if "postgresql" in DATABASE_URL else "SQLite (Local)"
+        print(f"\n{'='*60}")
+        print("ATTENDANCE SYSTEM STARTUP")
+        print(f"{'='*60}")
+        print(f"Database: {db_type}")
+        print(f"URL: {DATABASE_URL[:50]}...")
+        print(f"Late Threshold: {LATE_THRESHOLD}")
+        print(f"Port: {port}")
+        print(f"{'='*60}\n")
+        
+        # Initialize database before starting server
+        with app.app_context():
+            try:
+                db.create_all()
+                print("✅ Database tables created")
+                seed_staff()
+            except Exception as e:
+                print(f"⚠️ Database initialization warning: {e}")
+        
+        print(f"🚀 Starting server on port {port}...")
+        # Start server immediately - Render needs the port open ASAP
+        app.run(debug=debug_mode, host='0.0.0.0', port=port)
+    except Exception as e:
+        print(f"❌ FATAL ERROR during startup: {e}")
+        import traceback
+        traceback.print_exc()
+        exit(1)
