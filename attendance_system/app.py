@@ -37,7 +37,8 @@ from sqlalchemy import func
 # =====================================================
 
 # Database URL - Production (Render) or Local fallback
-DATABASE_URL = os.environ.get('DATABASE_URL', 'sqlite:///attendance.db')
+# IMPORTANT: Check multiple environment variables for DATABASE_URL
+DATABASE_URL = os.environ.get('DATABASE_URL') or os.environ.get('POSTGRES_URL') or 'sqlite:///attendance.db'
 
 # Fix for Supabase/Render: replace postgres:// with postgresql://
 if DATABASE_URL and DATABASE_URL.startswith('postgres://'):
@@ -55,9 +56,13 @@ if DATABASE_URL and 'postgresql' in DATABASE_URL:
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
         'pool_pre_ping': True,
         'pool_recycle': 300,
+        'pool_size': 5,
+        'max_overflow': 10,
         'connect_args': {
             'sslmode': 'require',
-            'connect_timeout': 10
+            'connect_timeout': 30,  # Increased timeout
+            'keepalives': 1,
+            'keepalives_idle': 30
         }
     }
     print("🔒 SSL mode enabled for PostgreSQL")
@@ -67,6 +72,29 @@ else:
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
+
+# =====================================================
+# GUNICORN COMPATIBLE INITIALIZATION
+# =====================================================
+# This runs at module import time, which is needed for gunicorn
+# to properly initialize the database when starting the app
+def init_db():
+    """Initialize database tables - safe to call multiple times"""
+    try:
+        with app.app_context():
+            db.create_all()
+            print("✅ Database tables created/verified (gunicorn init)")
+            # Only seed if using SQLite (local dev)
+            if 'sqlite' in DATABASE_URL:
+                seed_staff()
+    except Exception as e:
+        print(f"⚠️ Database initialization warning: {e}")
+
+# Try to initialize database on module import (for gunicorn)
+try:
+    init_db()
+except Exception as e:
+    print(f"⚠️ Initial database setup warning: {e}")
 
 
 # Supabase config
@@ -598,15 +626,14 @@ def debug_status():
 def health_check():
     """Health check endpoint for Render"""
     try:
-        # Test database connection
+        # Test database connection with a simple query
+        db.session.execute(db.text('SELECT 1'))
         staff_count = Staff.query.count()
-        attendance_count = Attendance.query.filter_by(work_date=date.today()).count()
         
         return jsonify({
             'status': 'healthy',
             'database': 'connected',
             'staff_count': staff_count,
-            'today_attendance_count': attendance_count,
             'timestamp': datetime.utcnow().isoformat()
         }), 200
     except Exception as e:
@@ -615,7 +642,7 @@ def health_check():
             'database': 'error',
             'error': str(e),
             'timestamp': datetime.utcnow().isoformat()
-        }), 500
+        }), 503  # Return 503 so Render knows the service is down
 
 
 
@@ -2428,35 +2455,40 @@ def export_casual_csv():
 # =====================================================
 
 if __name__ == '__main__':
+    # Get port first - Render requires this
+    port = int(os.environ.get('PORT', 5000))
+    debug_mode = os.environ.get('DEBUG', '').lower() == 'true'
+    
+    # Check if we're in production (Render sets PORT)
+    is_production = os.environ.get('PORT') is not None
+    
+    db_type = "PostgreSQL (Supabase)" if "postgresql" in DATABASE_URL else "SQLite (Local)"
+    print(f"\n{'='*60}")
+    print("ATTENDANCE SYSTEM STARTUP")
+    print(f"{'='*60}")
+    print(f"Database: {db_type}")
+    print(f"URL: {DATABASE_URL[:50]}...")
+    print(f"Late Threshold: {LATE_THRESHOLD}")
+    print(f"Port: {port}")
+    print(f"Mode: {'PRODUCTION' if is_production else 'DEVELOPMENT'}")
+    print(f"{'='*60}\n")
+    
+    # Initialize database with error handling
+    # Don't block startup if database is temporarily unavailable
+    db_init_error = None
     try:
-        # Get port first - Render requires this
-        port = int(os.environ.get('PORT', 5000))
-        debug_mode = os.environ.get('PORT') is None
-        
-        db_type = "PostgreSQL (Supabase)" if "postgresql" in DATABASE_URL else "SQLite (Local)"
-        print(f"\n{'='*60}")
-        print("ATTENDANCE SYSTEM STARTUP")
-        print(f"{'='*60}")
-        print(f"Database: {db_type}")
-        print(f"URL: {DATABASE_URL[:50]}...")
-        print(f"Late Threshold: {LATE_THRESHOLD}")
-        print(f"Port: {port}")
-        print(f"{'='*60}\n")
-        
-        # Initialize database before starting server
         with app.app_context():
-            try:
-                db.create_all()
-                print("✅ Database tables created")
+            db.create_all()
+            print("✅ Database tables created/verified")
+            # Only seed if using SQLite (local dev)
+            if 'sqlite' in DATABASE_URL:
                 seed_staff()
-            except Exception as e:
-                print(f"⚠️ Database initialization warning: {e}")
-        
-        print(f"🚀 Starting server on port {port}...")
-        # Start server immediately - Render needs the port open ASAP
-        app.run(debug=debug_mode, host='0.0.0.0', port=port)
     except Exception as e:
-        print(f"❌ FATAL ERROR during startup: {e}")
-        import traceback
-        traceback.print_exc()
-        exit(1)
+        db_init_error = str(e)
+        print(f"⚠️ Database initialization warning: {e}")
+        print("⚠️ Continuing anyway - will retry on first request")
+    
+    # Start server immediately - Render needs the port open ASAP
+    # Use threaded=True to handle multiple requests
+    print(f"🚀 Starting server on port {port}...")
+    app.run(debug=debug_mode, host='0.0.0.0', port=port, threaded=True)
