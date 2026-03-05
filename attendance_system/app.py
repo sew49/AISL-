@@ -2372,6 +2372,113 @@ def casual_logs():
         }), 500
 
 
+@app.route('/admin/export-attendance')
+def export_attendance():
+    """
+    Export monthly attendance report to CSV.
+    Compares staff with attendance records for the current month.
+    Marks employees as 'Absent' if they have no record for a working day.
+    """
+    if not session.get('admin_logged_in'):
+        return redirect(url_for('admin_login'))
+    
+    try:
+        import csv
+        from io import StringIO
+        
+        # Get current month dates
+        today = date.today()
+        first_day = today.replace(day=1)
+        if today.month == 12:
+            last_day = today.replace(year=today.year+1, month=1, day=1) - timedelta(days=1)
+        else:
+            last_day = today.replace(month=today.month+1, day=1) - timedelta(days=1)
+        
+        # Get all active employees
+        employees = Staff.query.filter_by(is_active=True).order_by(Staff.employee_code.asc()).all()
+        
+        # Get all attendance records for the current month
+        attendance_records = Attendance.query.filter(
+            Attendance.work_date >= first_day,
+            Attendance.work_date <= last_day
+        ).all()
+        
+        # Get all approved leave requests for the current month
+        leave_requests = LeaveRequest.query.filter(
+            LeaveRequest.status == 'Approved',
+            LeaveRequest.start_date <= last_day,
+            LeaveRequest.end_date >= first_day
+        ).all()
+        
+        # Build attendance lookup: {(staff_id, work_date): attendance_record}
+        attendance_lookup = {(att.staff_id, att.work_date): att for att in attendance_records}
+        
+        # Build leave lookup: {(staff_id, work_date): leave_request}
+        leave_lookup = {}
+        for lr in leave_requests:
+            # Iterate through each day of the leave
+            current = lr.start_date
+            while current <= lr.end_date:
+                if first_day <= current <= last_day:
+                    leave_lookup[(lr.staff_id, current)] = lr
+                current = current + timedelta(days=1)
+        
+        # Generate CSV
+        output = StringIO()
+        writer = csv.writer(output)
+        
+        # Header row
+        writer.writerow(['Date', 'Staff Name', 'Status', 'Clock-In Time'])
+        
+        # Iterate through each day of the month
+        current_date = first_day
+        while current_date <= last_day:
+            # Skip Sundays (weekday 6)
+            if current_date.weekday() != 6:
+                for emp in employees:
+                    staff_name = f"{emp.first_name} {emp.last_name}"
+                    staff_id = emp.id
+                    
+                    # Check if on leave
+                    leave = leave_lookup.get((staff_id, current_date))
+                    if leave:
+                        status = 'On Leave'
+                        clock_in = ''
+                    else:
+                        # Check if has attendance record
+                        att = attendance_lookup.get((staff_id, current_date))
+                        if att:
+                            status = 'Present'
+                            clock_in = att.clock_in.strftime('%H:%M') if att.clock_in else ''
+                        else:
+                            status = 'Absent'
+                            clock_in = ''
+                    
+                    writer.writerow([
+                        current_date.strftime('%Y-%m-%d'),
+                        staff_name,
+                        status,
+                        clock_in
+                    ])
+            
+            current_date = current_date + timedelta(days=1)
+        
+        # Return as downloadable file
+        output.seek(0)
+        month_str = today.strftime('%Y_%m')
+        
+        return make_response(output.getvalue(), 200, {
+            'Content-Type': 'text/csv',
+            'Content-Disposition': f'attachment; filename=attendance_report_{month_str}.csv'
+        })
+    
+    except Exception as e:
+        print(f"❌ ERROR exporting attendance: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return redirect(url_for('admin_dashboard'))
+
+
 @app.route('/export_casual_csv')
 def export_casual_csv():
     """Export casual worker attendance to CSV"""
