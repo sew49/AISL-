@@ -1128,25 +1128,27 @@ def export_leave_summary():
 
 
 # PDF Generation for Leave Approval Form
-from fpdf2 import FPDF
-import io
+# from fpdf import FPDF
+# import io
 
-class LeaveApprovalPDF(FPDF):
-    def header(self):
-        self.set_font('Arial', 'B', 16)
-        self.cell(0, 10, 'Official Leave Approval Form - AERO INSTRUMENT SERVICE LIMITED', 0, 1, 'C')
-        self.ln(5)
+# NOTE: fpdf2 is imported inside the PDF routes to prevent startup blocking
+
+# class LeaveApprovalPDF(FPDF):
+#     def header(self):
+#         self.set_font('Arial', 'B', 16)
+#         self.cell(0, 10, 'Official Leave Approval Form - AERO INSTRUMENT SERVICE LIMITED', 0, 1, 'C')
+#         self.ln(5)
     
-    def section_title(self, title):
-        self.set_font('Arial', 'B', 12)
-        self.cell(0, 8, title, 0, 1, 'L')
-        self.set_font('Arial', '', 11)
+#     def section_title(self, title):
+#         self.set_font('Arial', 'B', 12)
+#         self.cell(0, 8, title, 0, 1, 'L')
+#         self.set_font('Arial', '', 11)
     
-    def add_line(self, label, value):
-        self.set_font('Arial', 'B', 11)
-        self.cell(50, 7, label, 0, 0, 'L')
-        self.set_font('Arial', '', 11)
-        self.cell(0, 7, str(value), 0, 1, 'L')
+#     def add_line(self, label, value):
+#         self.set_font('Arial', 'B', 11)
+#         self.cell(50, 7, label, 0, 0, 'L')
+#         self.set_font('Arial', '', 11)
+#         self.cell(0, 7, str(value), 0, 1, 'L')
 
 
 @app.route('/api/leave-requests/<int:request_id>/print-pdf')
@@ -1197,68 +1199,72 @@ def print_leave_approval_pdf(request_id):
         else:
             balance_display = f"{remaining_balance:.1f}"
         
+        # PDF generation disabled - fpdf2 not available
         # Create PDF
-        pdf = LeaveApprovalPDF()
-        pdf.add_page()
+        # pdf = LeaveApprovalPDF()
+        # pdf.add_page()
         
         # Staff Details Section
-        pdf.section_title('STAFF DETAILS')
-        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
-        pdf.ln(2)
-        pdf.add_line('Employee Name:', f"{staff.first_name} {staff.last_name}")
-        pdf.add_line('Employee ID:', staff.employee_code or f"EMP{str(staff.id).zfill(3)}")
-        pdf.add_line('Department:', staff.department or 'Operations')
-        pdf.ln(5)
+        # pdf.section_title('STAFF DETAILS')
+        # pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+        # pdf.ln(2)
+        # pdf.add_line('Employee Name:', f"{staff.first_name} {staff.last_name}")
+        # pdf.add_line('Employee ID:', staff.employee_code or f"EMP{str(staff.id).zfill(3)}")
+        # pdf.add_line('Department:', staff.department or 'Operations')
+        # pdf.ln(5)
         
         # Leave Details Section
-        pdf.section_title('LEAVE DETAILS')
-        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
-        pdf.ln(2)
-        pdf.add_line('Leave Type:', leave_request.leave_type)
-        pdf.add_line('Start Date:', start_date_str)
-        pdf.add_line('End Date:', end_date_str)
-        pdf.add_line('Total Days:', days_display)
-        if leave_request.reason:
-            pdf.add_line('Reason:', leave_request.reason[:50] if len(leave_request.reason) > 50 else leave_request.reason)
-        pdf.ln(5)
+        # pdf.section_title('LEAVE DETAILS')
+        # pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+        # pdf.ln(2)
+        # pdf.add_line('Leave Type:', leave_request.leave_type)
+        # pdf.add_line('Start Date:', start_date_str)
+        # pdf.add_line('End Date:', end_date_str)
+        # pdf.add_line('Total Days:', days_display)
+        # if leave_request.reason:
+        #     pdf.add_line('Reason:', leave_request.reason[:50] if len(leave_request.reason) > 50 else leave_request.reason)
+        # pdf.ln(5)
         
         # Balance Summary Section
-        pdf.section_title('BALANCE SUMMARY')
-        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
-        pdf.ln(2)
-        pdf.add_line('Leave Type:', leave_request.leave_type)
-        pdf.add_line('Initial Balance:', f"{initial_balance:.1f} days")
-        pdf.add_line('Days Used:', f"- {days_display} days")
-        pdf.set_font('Arial', 'B', 11)
-        pdf.add_line('Remaining Balance:', f"{balance_display} days")
-        pdf.set_font('Arial', '', 11)
-        pdf.ln(10)
+        # pdf.section_title('BALANCE SUMMARY')
+        # pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+        # pdf.ln(2)
+        # pdf.add_line('Leave Type:', leave_request.leave_type)
+        # pdf.add_line('Initial Balance:', f"{initial_balance:.1f} days")
+        # pdf.add_line('Days Used:', f"- {days_display} days")
+        # pdf.set_font('Arial', 'B', 11)
+        # pdf.add_line('Remaining Balance:', f"{balance_display} days")
+        # pdf.set_font('Arial', '', 11)
+        # pdf.ln(10)
         
         # Signature Section
-        pdf.section_title('SIGNATURES')
-        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
-        pdf.ln(5)
+        # pdf.section_title('SIGNATURES')
+        # pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+        # pdf.ln(5)
         
         # Staff Signature
-        pdf.cell(90, 10, 'Staff Signature: ______________________', 0, 0, 'L')
-        pdf.cell(90, 10, 'Date: ____________', 0, 1, 'L')
-        pdf.ln(15)
+        # pdf.cell(90, 10, 'Staff Signature: ______________________', 0, 0, 'L')
+        # pdf.cell(90, 10, 'Date: ____________', 0, 1, 'L')
+        # pdf.ln(15)
         
         # Supervisor/Admin Signature
-        pdf.cell(90, 10, 'Supervisor/Admin Signature: __________', 0, 0, 'L')
-        pdf.cell(90, 10, 'Date: ____________', 0, 1, 'L')
+        # pdf.cell(90, 10, 'Supervisor/Admin Signature: __________', 0, 0, 'L')
+        # pdf.cell(90, 10, 'Date: ____________', 0, 1, 'L')
         
         # Footer
-        pdf.set_y(-25)
-        pdf.set_font('Arial', 'I', 8)
-        pdf.cell(0, 5, 'Generated by Attendance System on ' + datetime.now().strftime('%d/%m/%Y at %H:%M'), 0, 1, 'C')
+        # pdf.set_y(-25)
+        # pdf.set_font('Arial', 'I', 8)
+        # pdf.cell(0, 5, 'Generated by Attendance System on ' + datetime.now().strftime('%d/%m/%Y at %H:%M'), 0, 1, 'C')
         
         # Return PDF as response
-        response = make_response(pdf.output(dest='S').encode('latin-1'))
-        response.headers['Content-Type'] = 'application/pdf'
-        response.headers['Content-Disposition'] = f'attachment; filename=Leave_Approval_{staff.employee_code or staff.id}_{leave_request.start_date.strftime("%Y%m%d")}.pdf'
+        # response = make_response(pdf.output(dest='S').encode('latin-1'))
+        # response.headers['Content-Type'] = 'application/pdf'
+        # response.headers['Content-Disposition'] = f'attachment; filename=Leave_Approval_{staff.employee_code or staff.id}_{leave_request.start_date.strftime("%Y%m%d")}.pdf'
         
-        return response
+        # return response
+        
+        # Return JSON error for now - PDF not available
+        return jsonify({'success': False, 'error': 'PDF generation is currently disabled'}), 503
         
     except Exception as e:
         print(f"❌ ERROR generating PDF: {str(e)}")
@@ -1372,68 +1378,72 @@ def approve_and_download_pdf(request_id):
         else:
             initial_display = f"{initial_balance:.1f}"
         
+        # PDF generation disabled - fpdf2 not available
         # Create PDF
-        pdf = LeaveApprovalPDF()
-        pdf.add_page()
+        # pdf = LeaveApprovalPDF()
+        # pdf.add_page()
         
         # Staff Details Section
-        pdf.section_title('STAFF DETAILS')
-        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
-        pdf.ln(2)
-        pdf.add_line('Employee Name:', f"{staff.first_name} {staff.last_name}")
-        pdf.add_line('Employee ID:', staff.employee_code or f"EMP{str(staff.id).zfill(3)}")
-        pdf.add_line('Department:', staff.department or 'Operations')
-        pdf.ln(5)
+        # pdf.section_title('STAFF DETAILS')
+        # pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+        # pdf.ln(2)
+        # pdf.add_line('Employee Name:', f"{staff.first_name} {staff.last_name}")
+        # pdf.add_line('Employee ID:', staff.employee_code or f"EMP{str(staff.id).zfill(3)}")
+        # pdf.add_line('Department:', staff.department or 'Operations')
+        # pdf.ln(5)
         
         # Leave Details Section
-        pdf.section_title('LEAVE DETAILS')
-        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
-        pdf.ln(2)
-        pdf.add_line('Leave Type:', leave_request.leave_type)
-        pdf.add_line('Start Date:', start_date_str)
-        pdf.add_line('End Date:', end_date_str)
-        pdf.add_line('Total Days:', days_display)
-        if leave_request.reason:
-            pdf.add_line('Reason:', leave_request.reason[:50] if len(leave_request.reason) > 50 else leave_request.reason)
-        pdf.ln(5)
+        # pdf.section_title('LEAVE DETAILS')
+        # pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+        # pdf.ln(2)
+        # pdf.add_line('Leave Type:', leave_request.leave_type)
+        # pdf.add_line('Start Date:', start_date_str)
+        # pdf.add_line('End Date:', end_date_str)
+        # pdf.add_line('Total Days:', days_display)
+        # if leave_request.reason:
+        #     pdf.add_line('Reason:', leave_request.reason[:50] if len(leave_request.reason) > 50 else leave_request.reason)
+        # pdf.ln(5)
         
         # Balance Summary Section
-        pdf.section_title('BALANCE SUMMARY')
-        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
-        pdf.ln(2)
-        pdf.add_line('Leave Type:', leave_request.leave_type)
-        pdf.add_line('Initial Balance:', f"{initial_display} days")
-        pdf.add_line('Days Used:', f"- {days_display} days")
-        pdf.set_font('Arial', 'B', 11)
-        pdf.add_line('Remaining Balance:', f"{balance_display} days")
-        pdf.set_font('Arial', '', 11)
-        pdf.ln(10)
+        # pdf.section_title('BALANCE SUMMARY')
+        # pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+        # pdf.ln(2)
+        # pdf.add_line('Leave Type:', leave_request.leave_type)
+        # pdf.add_line('Initial Balance:', f"{initial_display} days")
+        # pdf.add_line('Days Used:', f"- {days_display} days")
+        # pdf.set_font('Arial', 'B', 11)
+        # pdf.add_line('Remaining Balance:', f"{balance_display} days")
+        # pdf.set_font('Arial', '', 11)
+        # pdf.ln(10)
         
         # Signature Section
-        pdf.section_title('SIGNATURES')
-        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
-        pdf.ln(5)
+        # pdf.section_title('SIGNATURES')
+        # pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+        # pdf.ln(5)
         
         # Staff Signature
-        pdf.cell(90, 10, 'Employee Signature: ______________________', 0, 0, 'L')
-        pdf.cell(90, 10, 'Date: ____________', 0, 1, 'L')
-        pdf.ln(15)
+        # pdf.cell(90, 10, 'Employee Signature: ______________________', 0, 0, 'L')
+        # pdf.cell(90, 10, 'Date: ____________', 0, 1, 'L')
+        # pdf.ln(15)
         
         # Supervisor/Monu Signature
-        pdf.cell(90, 10, 'Supervisor/Monu Signature: __________', 0, 0, 'L')
-        pdf.cell(90, 10, 'Date: ____________', 0, 1, 'L')
+        # pdf.cell(90, 10, 'Supervisor/Monu Signature: __________', 0, 0, 'L')
+        # pdf.cell(90, 10, 'Date: ____________', 0, 1, 'L')
         
         # Footer
-        pdf.set_y(-25)
-        pdf.set_font('Arial', 'I', 8)
-        pdf.cell(0, 5, 'Generated by Attendance System on ' + datetime.now().strftime('%d/%m/%Y at %H:%M'), 0, 1, 'C')
+        # pdf.set_y(-25)
+        # pdf.set_font('Arial', 'I', 8)
+        # pdf.cell(0, 5, 'Generated by Attendance System on ' + datetime.now().strftime('%d/%m/%Y at %H:%M'), 0, 1, 'C')
         
         # Return PDF as direct download
-        response = make_response(pdf.output(dest='S').encode('latin-1'))
-        response.headers['Content-Type'] = 'application/pdf'
-        response.headers['Content-Disposition'] = f'attachment; filename=Leave_Approval_{staff.employee_code or staff.id}_{leave_request.start_date.strftime("%Y%m%d")}.pdf'
+        # response = make_response(pdf.output(dest='S').encode('latin-1'))
+        # response.headers['Content-Type'] = 'application/pdf'
+        # response.headers['Content-Disposition'] = f'attachment; filename=Leave_Approval_{staff.employee_code or staff.id}_{leave_request.start_date.strftime("%Y%m%d")}.pdf'
         
-        return response
+        # return response
+        
+        # Return JSON error for now - PDF not available
+        return jsonify({'success': False, 'error': 'PDF generation is currently disabled'}), 503
         
     except Exception as e:
         print(f"❌ ERROR approving and generating PDF: {str(e)}")
